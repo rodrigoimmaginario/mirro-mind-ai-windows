@@ -47,15 +47,21 @@ is unclear, stop and ask rather than make assumptions.
 
 ## Verification Checklist
 
-Every story ends with:
+Every story starts by syncing development dependencies and ends with the same
+commands CI runs locally:
 
 ```bash
-pytest                              # all tests pass
-ruff check src/ tests/              # no lint violations
-ruff format --check src/ tests/     # no formatting issues
-pyright src/memory                  # no type errors
-git diff --check                    # no trailing whitespace
+uv sync --extra dev
+uv run pytest tests/unit/ tests/integration/ -m "not live"
+uv run ruff check src/ tests/
+uv run ruff format --check src/ tests/
+uv run mypy src/memory
+git diff --check
 ```
+
+Do not run bare `pytest`, `ruff`, or `mypy` unless your shell is already inside
+the project virtualenv. Bare commands may resolve to global tools and produce
+misleading missing-dependency errors.
 
 For stories that touch runtime behavior, also run an isolated smoke test with
 temporary `HOME` and `MEMORY_DIR` to confirm no production database is touched.

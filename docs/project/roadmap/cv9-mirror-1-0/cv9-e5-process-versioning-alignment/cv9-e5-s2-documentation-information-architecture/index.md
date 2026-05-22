@@ -3,7 +3,7 @@
 # CV9.E5.S2 — Documentation Information Architecture
 
 **Epic:** CV9.E5 Process & Versioning Alignment  
-**Status:** 🟢 In Progress
+**Status:** ✅ Done
 **User-visible outcome:** The Web Console documentation tree has a clear home, section landing pages, and a structure aligned with process, project, and product.
 
 ---
@@ -42,6 +42,22 @@ Candidate work:
 - Separate Envisioning landing-page content from historical synthesis content.
 
 ---
+
+## Result
+
+This story applies a conservative documentation information architecture based on
+Ariad's pattern:
+
+- `docs/index.md` now opens with a short narrative and explicit Start Here paths
+  for new users, operators, contributors, and developers.
+- The Product / Project / Process triad remains the organizing spine.
+- A practical Reference layer names commands, runtime operations, architecture,
+  API, releases, and runtime self-update lookup surfaces.
+- No files were moved for symmetry before 1.0. Stable links remain preferred
+  until there is enough navigation pressure to justify a dedicated reference or
+  operations subtree.
+- The worklog gained a prospective scaling rule: keep it single-file through 1.0
+  and archive by release or year afterward if it becomes hard to scan.
 
 ## See also
 

@@ -11,6 +11,26 @@ resolved.
 
 ## Completed Decisions
 
+### Documentation IA stays conservative before 1.0
+
+**Date:** 2026-05-22
+**Reference:** [CV9.E5.S2 Documentation Information Architecture](roadmap/cv9-mirror-1-0/cv9-e5-process-versioning-alignment/cv9-e5-s2-documentation-information-architecture/index.md), [Ariad documentation home](https://github.com/mirror-mind-ai/ariad/blob/main/docs/index.md)
+
+Mirror Mind adopts Ariad's documentation pattern for the 1.0 docs home: a short narrative opening, explicit "start here" paths, and the Process / Project / Product triad as the organizing spine. A practical Reference layer is allowed for command, operations, and developer lookup material.
+
+The project will not move files before 1.0 solely for symmetry. The following locations remain stable for now:
+
+- `docs/releases/` stays top-level as the prospective release-note home.
+- `docs/architecture.md` and `docs/api.md` stay at the docs root as developer reference surfaces.
+- `docs/process/runtime-repair-policy.md` and `docs/process/troubleshooting.md` stay under Process because they describe safe operating policy and repair practice.
+- `docs/process/worklog.md` stays single-file through 1.0, with post-1.0 archive-by-release or archive-by-year as the scaling rule if it becomes hard to scan.
+
+Consequences:
+
+- The docs home should make reader paths explicit instead of acting only as an inventory.
+- Stable links are preferred over large moves during the 1.0 readiness cycle.
+- A future `docs/reference/` or `docs/operations/` subtree remains possible, but it should be justified by accumulated navigation pressure rather than introduced preemptively.
+
 ### Mirror Mind clones declare a role
 
 **Date:** 2026-05-22

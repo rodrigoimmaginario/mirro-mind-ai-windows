@@ -5,9 +5,18 @@
 Operational progress. This file records what was delivered and what is next.
 Update when a meaningful milestone is reached.
 
+Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
+1.0, archive by release or year if the file becomes hard to scan.
+
 ---
 
 ## Done
+
+### 2026-05-22 — Documentation information architecture updated
+
+Completed CV9.E5.S2 using Ariad's documentation pattern as the reference: short narrative home, explicit Start Here paths, and the Process / Project / Product triad with a practical Reference layer. `docs/index.md` now routes new users, operators, contributors, and developers to the right surfaces.
+
+Made a conservative pre-1.0 decision not to move files only for symmetry. `docs/releases/`, root-level `docs/architecture.md` and `docs/api.md`, and operations docs under `docs/process/` remain in place. Added a worklog scaling rule: keep a single file through 1.0, then archive by release or year if needed.
 
 ### 2026-05-22 — CV9.E3 closed and CV9.E5.S2 opened
 

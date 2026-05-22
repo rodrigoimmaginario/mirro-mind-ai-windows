@@ -39,62 +39,112 @@ Codex uses the `$mm-` prefix. All runtimes call the same Python core.
 | `python -m memory runtime` | — | — | Inspects Mirror runtime status, version, drift, backups, plans updates, and executes safe updates | `status [--mirror-home PATH]`, `version`, `diagnose [--mirror-home PATH]`, `backup [--mirror-home PATH]`, `backup --verify PATH`, `update --dry-run [--mirror-home PATH]`, `update --check`, `update [--no-fetch] [--skip-migrations] [--mirror-home PATH]` |
 | `ext-review-copy` | — | `ext:review-copy` | External multi-LLM copy review skill; install and expose it before use | skill-driven workflow |
 
-To inspect the local runtime state before an operational update:
+## Runtime Self-Update
+
+The `runtime` subcommands operate in three layers: inspection (read-only), backup (preparatory), and update (planning and execution). They were designed to be composed in this order before any code or database mutation happens. See [Runtime Repair Policy](docs/process/runtime-repair-policy.md) for the rules that govern safe repairs.
+
+### Recommended flow
 
 ```bash
+# 1. Confirm the runtime is healthy
 uv run python -m memory runtime status
+
+# 2. Classify any drift the status surfaces
+uv run python -m memory runtime diagnose
+
+# 3. Check whether a new version is available
+uv run python -m memory runtime update --check
+
+# 4. Plan the update locally
+uv run python -m memory runtime update --dry-run
+
+# 5. Execute the update through the safe pipeline
+uv run python -m memory runtime update
 ```
 
-The command reports version, repository, git state, mirror home, database, core migration health, installed extensions, extension health, clone role, Python version, and environment. It exits with attention needed when the current state is not safe enough for update planning, for example when the git tree is dirty, the mirror home is not configured, core migrations are missing or unknown, or installed extension migrations have pending, drifted, or unknown files.
+Each command exits non-zero when state is not safe enough for the next step.
 
-To classify attention-needed drift into repair routes without mutating files or the database:
+### Inspection
+
+#### `runtime status`
 
 ```bash
-uv run python -m memory runtime diagnose
+uv run python -m memory runtime status [--mirror-home PATH]
 ```
 
-The diagnosis command classifies repository drift, unknown or pending core migrations, extension migration drift, checksum drift, and invalid extension manifests. See [Runtime Repair Policy](docs/process/runtime-repair-policy.md) for the rules that govern safe repairs.
+Reports version, repository, git state, mirror home, database, core migration health, installed extensions, extension health, clone role, Python version, and environment. Exits `attention needed` when the git tree is dirty, the mirror home is not configured, core migrations are missing or unknown, or installed extension migrations are pending, drifted, or unknown.
 
-To create and structurally verify a runtime backup before an operational update:
+#### `runtime version`
+
+```bash
+uv run python -m memory runtime version
+```
+
+Reports the installed version, repository, branch, commit, and clone role. Local and offline.
+
+#### `runtime diagnose`
+
+```bash
+uv run python -m memory runtime diagnose [--mirror-home PATH]
+```
+
+Classifies attention-needed drift into stable finding codes (`git_dirty`, `core_migration_pending`, `core_migration_unknown`, `extension_migration_pending`, `extension_migration_unknown`, `extension_migration_checksum_drift`, `extension_manifest_invalid`, `database_missing`, `mirror_home_missing`). Each finding carries severity, subject, recommendation, and a repair route. Read-only.
+
+### Backup
 
 ```bash
 uv run python -m memory runtime backup [--mirror-home PATH]
 uv run python -m memory runtime backup --verify PATH_TO_BACKUP.zip
 ```
 
-Runtime backup archives contain `memory.db` and SQLite sidecars (`memory.db-wal`, `memory.db-shm`) when present. Verification is structural: the zip must be readable, contain `memory.db`, and avoid unsafe archive paths. Recovery remains manual in this version: stop active runtime sessions, move current database files aside, extract the backup into the Mirror home, and rerun runtime status.
+Runtime backup archives contain `memory.db` and SQLite sidecars (`memory.db-wal`, `memory.db-shm`) when present. Verification is structural: the zip must be readable, contain `memory.db`, and avoid unsafe archive paths. Recovery is manual in this version: stop active runtime sessions, move current database files aside, extract the backup into the Mirror home, and rerun `runtime status`.
 
-To inspect the installed runtime version without contacting the network:
+### Update planning
 
-```bash
-uv run python -m memory runtime version
-```
-
-Mirror Mind clones declare a role through a `.mirror-clone-role` file at the repository root. Valid values are `production` and `dev`. The file is local to each clone and ignored by git. When the file is missing, unreadable, or contains an unknown value, the role defaults to `production`. Builder Mode (`python -m memory build load <slug>`) refuses to start in a clone marked `production` unless `--ignore-production-role` is passed. Runtime status and runtime version both report the current clone role.
-
-To explicitly check the configured upstream for an available update without fetching or changing local refs:
+#### `runtime update --check`
 
 ```bash
 uv run python -m memory runtime update --check
 ```
 
-The check uses `git ls-remote` against the configured upstream branch. It may contact the network, but it does not fetch, pull, back up, migrate, or modify files.
+Queries the configured upstream branch through `git ls-remote`. May contact the network, but does not fetch, pull, change refs, back up, migrate, or modify files. Reports `up_to_date`, `update_available`, `local_ahead`, `diverged`, `no_upstream`, or `unknown`.
 
-To plan a runtime update from local git refs without mutating files, git refs, backups, migrations, or the database:
+#### `runtime update --dry-run`
 
 ```bash
 uv run python -m memory runtime update --dry-run
 ```
 
-To execute a safe runtime update:
+Plans an update from local refs only. Reuses `runtime status` as the safety gate. Reports whether a real update would be a no-op, pull known remote commits, or require manual reconciliation because the branch is ahead, diverged, dirty, or missing an upstream. Does not contact the network.
+
+### Update execution
 
 ```bash
-uv run python -m memory runtime update
+uv run python -m memory runtime update [--no-fetch] [--skip-migrations] [--mirror-home PATH]
 ```
 
-Execution is the first mutating runtime command. It runs as an ordered pipeline: status gate, fetch upstream, plan, database backup, backup verification, fast-forward only git merge, migrations through a one-shot `MemoryClient` open, and a post-update status check. The first failure stops the pipeline. Recovery instructions are always printed on failure and include the backup path and previous commit when relevant. Flags: `--no-fetch` skips fetch and uses local refs; `--skip-migrations` applies code without opening the database; `--mirror-home PATH` overrides the resolved mirror home.
+Executes the safe update pipeline. Stages run in order and the first failure stops execution:
 
-The dry-run reuses runtime status as its safety gate, inspects the local branch's configured upstream without fetching, and reports whether a real update would be a no-op, pull known remote commits, or require manual reconciliation because the branch is ahead, diverged, dirty, or missing an upstream.
+1. **status gate** — must be ready.
+2. **fetch upstream** — mutates only remote-tracking refs. Skipped with `--no-fetch`.
+3. **plan** — accepts `none` (already up to date) and `pull`. Blocks `ahead`, `diverged`, and other unsafe states.
+4. **backup database** — reuses the runtime backup pipeline.
+5. **verify backup** — structural verification of the archive.
+6. **fast-forward** — `git merge --ff-only` against the upstream. Refuses merges and rebases.
+7. **migrations** — opens `MemoryClient` once to trigger migration application. Skipped with `--skip-migrations`.
+8. **post-update status** — reruns `runtime status` and expects `ready`.
+
+Failures print a recovery block with the backup path and previous commit when relevant. The pipeline does not roll back automatically: recovery is documented manual work.
+
+### Clone role
+
+Each Mirror Mind clone declares its role through a `.mirror-clone-role` file at the repository root. Valid values are `production` and `dev`. The file is local to each clone and ignored by git. When the file is missing, unreadable, or contains an unknown value, the role defaults to `production`.
+
+- `runtime status` and `runtime version` report the current clone role.
+- `python -m memory build load <slug>` refuses to start Builder Mode in a clone marked `production` unless `--ignore-production-role` is passed.
+- Production clones receive code through `git pull` or, once self-update is bootstrapped, through `runtime update`.
+
+See [Runtime Repair Policy](docs/process/runtime-repair-policy.md) and [Decisions](docs/project/decisions.md#mirror-mind-clones-declare-a-role) for the boundary and rationale.
 
 To list the active personas for the current user:
 

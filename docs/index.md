@@ -41,6 +41,7 @@ How we work.
 - [Release Notes](process/release-notes.md) — narrative release-note format for future releases
 - [Worklog](process/worklog.md) — operational progress (what was done, what is next)
 - [Troubleshooting](process/troubleshooting.md) — known bugs in the wild, their root causes, and the fixes that addressed them
+- [Runtime Repair Policy](process/runtime-repair-policy.md) — boundaries and routes for safe runtime repair and self-update
 
 ---
 

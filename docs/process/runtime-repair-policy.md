@@ -1,0 +1,104 @@
+[< Process](index.md)
+
+# Runtime Repair Policy
+
+Runtime repair starts after diagnosis, not before it. `runtime status` says whether the local runtime is ready for update planning. `runtime diagnose` explains the drift. This policy defines which repair routes are acceptable before Mirror gains commands that mutate files, migrations, or installed extensions.
+
+## Safety Principles
+
+Diagnosis comes before repair. Backup comes before database mutation. No command should silently delete files, rewrite migration history, reinstall extensions, or normalize drift just to make status green.
+
+A clean status is only meaningful when the route to that cleanliness is documented. Preserve historical evidence until provenance is understood.
+
+## Drift Classes
+
+### Generated Pi HTML exports
+
+Pi stores resumable sessions as JSONL under `~/.pi/agent/sessions/`. Those files are the authoritative session history used by `pi -c`, `pi -r`, `pi --session`, `/resume`, `/tree`, `/fork`, and `/clone`.
+
+Files named `pi-session-*.html` in the repository root are HTML exports, usually created by `/export`. They are useful for human reading or sharing, but they are derived artifacts and should not be versioned with Mirror Mind source code.
+
+Policy:
+
+- Preserve them when useful by moving them to a local archive folder.
+- Keep the archive folder ignored by git.
+- Do not treat exported HTML as the source of session restoration.
+- Do not let exported HTML block update planning after it is archived outside tracked source.
+
+Current repair route:
+
+```text
+mkdir -p pi_exports
+mv pi-session-*.html pi_exports/
+```
+
+`pi_exports/` is ignored by git.
+
+### Unknown core migration rows
+
+Unknown core migration rows are entries in `_migrations` that are not present in `memory.db.migrations.MIGRATIONS` for the checked-out code.
+
+Policy:
+
+- Do not delete automatically.
+- Classify provenance before repair.
+- Require a database backup before any mutation.
+- Prefer a documented legacy allowance when the row is historical and harmless.
+- Prefer a dedicated repair command over manual SQL when mutation is necessary.
+
+Current local findings:
+
+- `005_create_testimonials`
+- `2026-04-14-add-liquidity`
+
+Likely interpretation: personal-domain or extension-era migrations that predate the current extension migration contract. They should not be erased only to satisfy runtime status.
+
+### Unknown extension migration rows
+
+Unknown extension migration rows are entries in `_ext_migrations` whose files are absent from the installed extension's `migrations/` directory.
+
+Policy:
+
+- Do not delete automatically.
+- Prefer restoring missing migration files in the extension package if they are part of canonical history.
+- If the migration is intentionally historical and no longer shipped, the extension should preserve a no-op historical migration file or declare a legacy allowance in a future contract.
+- Require a database backup before any mutation.
+
+Current local finding:
+
+- `maestro`: `001_init.sql`
+
+Likely interpretation: Maestro was installed with a migration file at some point, but the current installed package no longer includes it. Inspect the canonical Maestro source before touching the database.
+
+### Pending migrations
+
+Pending migrations are blockers for update planning. The installed code declares schema work that the database has not recorded.
+
+Policy:
+
+- Require backup before running migrations.
+- Repair by running the appropriate migration path.
+- Never repair by inserting tracking rows manually.
+
+### Checksum drift
+
+Checksum drift means an applied migration file no longer matches the recorded semantics.
+
+Policy:
+
+- Treat as blocker.
+- Do not normalize automatically.
+- Repair by restoring the original migration file or adding a new migration.
+
+### Invalid extension manifests
+
+Invalid manifests are blockers because Mirror cannot reliably reason about the installed extension.
+
+Policy:
+
+- Repair the package or reinstall from canonical source.
+- Do not mutate database state unless the later repair path explicitly requires migration work after backup.
+
+## Future Repair Commands
+
+Future repair commands must be explicit about mutation. They should print the planned changes, require backup for database mutation, and avoid combining unrelated repair classes in one command unless the user explicitly asks for a full repair plan.

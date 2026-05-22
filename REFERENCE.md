@@ -36,7 +36,7 @@ Codex uses the `$mm-` prefix. All runtimes call the same Python core.
 | `/mm-shadow` | `$mm-shadow` | `/mm:shadow` | Surface and promote shadow-layer observations | `scan`, `apply`, `reject`, `list`, `show` |
 | `/mm-welcome` | `$mm-welcome` | `/mm:welcome` | Renders the state-aware welcome card on demand | no arguments |
 | `/mm-help` | `$mm-help` | `/mm:help` | Lists available commands | no arguments |
-| `python -m memory runtime` | — | — | Inspects Mirror runtime status, backups, and update plans | `status [--mirror-home PATH]`, `backup [--mirror-home PATH]`, `backup --verify PATH`, `update --dry-run [--mirror-home PATH]` |
+| `python -m memory runtime` | — | — | Inspects Mirror runtime status, diagnoses drift, manages backups, and plans updates | `status [--mirror-home PATH]`, `diagnose [--mirror-home PATH]`, `backup [--mirror-home PATH]`, `backup --verify PATH`, `update --dry-run [--mirror-home PATH]` |
 | `ext-review-copy` | — | `ext:review-copy` | External multi-LLM copy review skill; install and expose it before use | skill-driven workflow |
 
 To inspect the local runtime state before an operational update:
@@ -45,7 +45,15 @@ To inspect the local runtime state before an operational update:
 uv run python -m memory runtime status
 ```
 
-The command reports version, repository, git state, mirror home, database, core migration health, installed extensions, extension health, Python version, and environment. It exits with attention needed when the current state is not safe enough for update planning, for example when the git tree is dirty, the mirror home is not configured, core migrations are missing, or installed extension migrations have pending or drifted files.
+The command reports version, repository, git state, mirror home, database, core migration health, installed extensions, extension health, Python version, and environment. It exits with attention needed when the current state is not safe enough for update planning, for example when the git tree is dirty, the mirror home is not configured, core migrations are missing or unknown, or installed extension migrations have pending, drifted, or unknown files.
+
+To classify attention-needed drift into repair routes without mutating files or the database:
+
+```bash
+uv run python -m memory runtime diagnose
+```
+
+The diagnosis command classifies repository drift, unknown or pending core migrations, extension migration drift, checksum drift, and invalid extension manifests. See [Runtime Repair Policy](docs/process/runtime-repair-policy.md) for the rules that govern safe repairs.
 
 To create and structurally verify a runtime backup before an operational update:
 

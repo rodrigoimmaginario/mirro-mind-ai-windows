@@ -46,6 +46,7 @@ class CoreMigrationHealth:
     applied_count: int | None
     known_count: int
     missing: tuple[str, ...]
+    unknown: tuple[str, ...] = ()
     note: str | None = None
 
 
@@ -56,6 +57,23 @@ class ExtensionHealth:
     note: str | None = None
     pending_migrations: tuple[str, ...] = ()
     drifted_migrations: tuple[str, ...] = ()
+    unknown_migrations: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class GitWorktreeEntry:
+    status: str
+    path: str
+
+
+@dataclass(frozen=True)
+class DriftFinding:
+    code: str
+    severity: str
+    subject: str
+    detail: str
+    recommendation: str
+    repair_route: str
 
 
 @dataclass(frozen=True)
@@ -142,6 +160,26 @@ def _run_git(args: list[str], *, cwd: Path) -> tuple[int, str, str]:
     return completed.returncode, completed.stdout.strip(), completed.stderr.strip()
 
 
+def _parse_porcelain_line(line: str) -> GitWorktreeEntry | None:
+    if not line:
+        return None
+    status = line[:2]
+    path = line[2:].strip()
+    if " -> " in path:
+        path = path.split(" -> ", 1)[1]
+    return GitWorktreeEntry(status=status, path=path)
+
+
+def inspect_git_worktree(repository: Path | None) -> tuple[GitWorktreeEntry, ...]:
+    if repository is None:
+        return ()
+    code, stdout, _stderr = _run_git(["status", "--porcelain"], cwd=repository)
+    if code != 0 or not stdout:
+        return ()
+    entries = [_parse_porcelain_line(line) for line in stdout.splitlines()]
+    return tuple(entry for entry in entries if entry is not None)
+
+
 def inspect_git(start: Path) -> GitStatus:
     code, stdout, stderr = _run_git(["rev-parse", "--show-toplevel"], cwd=start)
     if code != 0 or not stdout:
@@ -207,26 +245,31 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
 def inspect_core_migrations(db_path: Path | None, db_exists: bool | None) -> CoreMigrationHealth:
     known_ids = tuple(migration_id for migration_id, _ in MIGRATIONS)
     if db_path is None:
-        return CoreMigrationHealth(False, None, len(known_ids), (), "database path unknown")
+        return CoreMigrationHealth(False, None, len(known_ids), (), note="database path unknown")
     if db_exists is not True:
-        return CoreMigrationHealth(False, None, len(known_ids), (), "database missing")
+        return CoreMigrationHealth(False, None, len(known_ids), (), note="database missing")
     try:
         with _connect_read_only(db_path) as conn:
             if not _table_exists(conn, "_migrations"):
                 return CoreMigrationHealth(
-                    False, 0, len(known_ids), known_ids, "migration ledger missing"
+                    False, 0, len(known_ids), known_ids, note="migration ledger missing"
                 )
             rows = conn.execute("SELECT id FROM _migrations").fetchall()
     except sqlite3.Error as exc:
-        return CoreMigrationHealth(False, None, len(known_ids), known_ids, str(exc))
+        return CoreMigrationHealth(False, None, len(known_ids), known_ids, note=str(exc))
 
+    known_set = set(known_ids)
     applied = {row[0] for row in rows}
     missing = tuple(migration_id for migration_id in known_ids if migration_id not in applied)
+    unknown = tuple(
+        sorted(migration_id for migration_id in applied if migration_id not in known_set)
+    )
     return CoreMigrationHealth(
-        ready=not missing,
+        ready=not missing and not unknown,
         applied_count=len(applied.intersection(known_ids)),
         known_count=len(known_ids),
         missing=missing,
+        unknown=unknown,
     )
 
 
@@ -279,10 +322,23 @@ def inspect_extension_health(
                 continue
 
             try:
+                migrations_dir = child / "migrations"
                 pending, drifted = inspect_migration_files(
-                    conn, extension_id=extension_id, migrations_dir=child / "migrations"
+                    conn, extension_id=extension_id, migrations_dir=migrations_dir
                 )
-            except ExtensionMigrationError as exc:
+                known_files = {
+                    path.name
+                    for path in migrations_dir.glob("*.sql")
+                    if path.is_file()
+                }
+                rows = conn.execute(
+                    "SELECT filename FROM _ext_migrations WHERE extension_id = ?",
+                    (extension_id,),
+                ).fetchall()
+                unknown = tuple(
+                    sorted(str(row[0]) for row in rows if str(row[0]) not in known_files)
+                )
+            except (ExtensionMigrationError, sqlite3.Error) as exc:
                 results.append(ExtensionHealth(extension_id, False, str(exc)))
                 continue
             note = None
@@ -290,13 +346,16 @@ def inspect_extension_health(
                 note = "pending migrations"
             if drifted:
                 note = "migration checksum drift" if note is None else f"{note}; checksum drift"
+            if unknown:
+                note = "unknown applied migrations" if note is None else f"{note}; unknown applied"
             results.append(
                 ExtensionHealth(
                     extension_id,
-                    not pending and not drifted,
+                    not pending and not drifted and not unknown,
                     note,
                     pending_migrations=pending,
                     drifted_migrations=drifted,
+                    unknown_migrations=unknown,
                 )
             )
     finally:
@@ -351,7 +410,9 @@ def verify_backup_archive(backup_path: Path) -> BackupVerification:
     for entry in entries:
         entry_path = Path(entry)
         if entry_path.is_absolute() or ".." in entry_path.parts:
-            return BackupVerification(backup_path, False, entries, f"unsafe archive entry: {entry}")
+            return BackupVerification(
+                backup_path, False, entries, f"unsafe archive entry: {entry}"
+            )
     if "memory.db" not in entries:
         return BackupVerification(backup_path, False, entries, "memory.db missing from backup")
     allowed = {"memory.db", "memory.db-wal", "memory.db-shm"}
@@ -408,7 +469,9 @@ def inspect_git_update_plan(git: GitStatus) -> GitUpdatePlan:
         ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd=git.repository
     )
     if code != 0 or not upstream:
-        return GitUpdatePlan(None, None, None, False, "blocked", stderr or "no upstream configured")
+        return GitUpdatePlan(
+            None, None, None, False, "blocked", stderr or "no upstream configured"
+        )
 
     count_code, counts, count_err = _run_git(
         ["rev-list", "--left-right", "--count", "HEAD...@{u}"], cwd=git.repository
@@ -462,6 +525,8 @@ def _render_core_migrations(health: CoreMigrationHealth) -> str:
     detail = f"{count}/{health.known_count} applied"
     if health.missing:
         detail = f"{detail}; missing {', '.join(health.missing)}"
+    if health.unknown:
+        detail = f"{detail}; unknown {', '.join(health.unknown)}"
     if health.note:
         detail = f"{detail}; {health.note}"
     return f"Core migrations: attention needed ({detail})"
@@ -485,6 +550,8 @@ def _render_extension_health(items: tuple[ExtensionHealth, ...]) -> list[str]:
             details.append(f"pending {', '.join(item.pending_migrations)}")
         if item.drifted_migrations:
             details.append(f"drifted {', '.join(item.drifted_migrations)}")
+        if item.unknown_migrations:
+            details.append(f"unknown {', '.join(item.unknown_migrations)}")
         lines.append(
             f"  - {item.extension_id}: {'; '.join(details) if details else 'attention needed'}"
         )
@@ -507,6 +574,159 @@ def _runtime_status_blockers(report: RuntimeStatusReport) -> list[str]:
         if not health.ready:
             blockers.append(f"extension {health.extension_id} needs attention")
     return blockers
+
+
+def _git_dirty_finding(entry: GitWorktreeEntry) -> DriftFinding:
+    is_session_html = entry.path.startswith("pi-session-") and entry.path.endswith(".html")
+    if entry.status == "??" and is_session_html:
+        recommendation = "archive or ignore generated session HTML before update planning"
+        repair_route = "manual review"
+    elif entry.status == "??":
+        recommendation = "review untracked file before update planning"
+        repair_route = "manual review"
+    else:
+        recommendation = "commit, stash, or discard intentional work before update planning"
+        repair_route = "commit or manual review"
+    return DriftFinding(
+        code="git_dirty",
+        severity="attention",
+        subject="repository",
+        detail=f"{entry.status} {entry.path}",
+        recommendation=recommendation,
+        repair_route=repair_route,
+    )
+
+
+def diagnose_runtime(
+    report: RuntimeStatusReport,
+    worktree_entries: tuple[GitWorktreeEntry, ...] = (),
+) -> tuple[DriftFinding, ...]:
+    findings: list[DriftFinding] = []
+    if report.mirror_home_error:
+        findings.append(
+            DriftFinding(
+                "mirror_home_missing",
+                "blocker",
+                "mirror home",
+                report.mirror_home_error,
+                "configure MIRROR_HOME or MIRROR_USER before update planning",
+                "configuration",
+            )
+        )
+    if report.db_exists is False:
+        findings.append(
+            DriftFinding(
+                "database_missing",
+                "blocker",
+                "database",
+                str(report.db_path) if report.db_path else "unknown",
+                "restore or initialize the memory database before update planning",
+                "restore or initialize",
+            )
+        )
+
+    findings.extend(_git_dirty_finding(entry) for entry in worktree_entries)
+
+    for migration_id in report.core_migrations.missing:
+        findings.append(
+            DriftFinding(
+                "core_migration_pending",
+                "blocker",
+                "database _migrations",
+                migration_id,
+                "run pending core migrations only after backup",
+                "backup then migrate",
+            )
+        )
+    for migration_id in report.core_migrations.unknown:
+        findings.append(
+            DriftFinding(
+                "core_migration_unknown",
+                "attention",
+                "database _migrations",
+                migration_id,
+                "classify as legacy core row, extension-owned row, or experimental drift",
+                "manual review",
+            )
+        )
+    if report.core_migrations.note:
+        findings.append(
+            DriftFinding(
+                "core_migration_unreadable",
+                "blocker",
+                "database _migrations",
+                report.core_migrations.note,
+                "restore readable migration tracking before update planning",
+                "database repair",
+            )
+        )
+
+    for extension in report.extension_health:
+        if extension.note and "missing required field" in extension.note:
+            findings.append(
+                DriftFinding(
+                    "extension_manifest_invalid",
+                    "blocker",
+                    f"extension/{extension.extension_id}",
+                    extension.note,
+                    "repair or reinstall the extension manifest before update planning",
+                    "extension repair",
+                )
+            )
+        for filename in extension.pending_migrations:
+            findings.append(
+                DriftFinding(
+                    "extension_migration_pending",
+                    "blocker",
+                    f"extension/{extension.extension_id}",
+                    filename,
+                    "run pending extension migrations only after backup",
+                    "backup then extension migrate",
+                )
+            )
+        for filename in extension.drifted_migrations:
+            findings.append(
+                DriftFinding(
+                    "extension_migration_checksum_drift",
+                    "blocker",
+                    f"extension/{extension.extension_id}",
+                    filename,
+                    "restore the original migration file or create a new migration",
+                    "extension repair",
+                )
+            )
+        for filename in extension.unknown_migrations:
+            findings.append(
+                DriftFinding(
+                    "extension_migration_unknown",
+                    "attention",
+                    f"extension/{extension.extension_id}",
+                    filename,
+                    "compare installed extension with canonical source and classify history",
+                    "manual review or reinstall",
+                )
+            )
+    return tuple(findings)
+
+
+def render_runtime_diagnosis(findings: tuple[DriftFinding, ...]) -> str:
+    lines: list[str] = ["Mirror runtime drift diagnosis", ""]
+    if not findings:
+        lines.append("Findings: 0")
+        lines.append("")
+        lines.append("Status: ready")
+        return "\n".join(lines) + "\n"
+
+    lines.append(f"Findings: {len(findings)} attention needed")
+    for finding in findings:
+        lines.append("")
+        lines.append(f"[{finding.severity}] {finding.code}: {finding.detail}")
+        lines.append(f"Subject: {finding.subject}")
+        lines.append(f"Recommendation: {finding.recommendation}")
+        lines.append(f"Repair route: {finding.repair_route}")
+    lines.append("")
+    lines.append("Status: attention needed")
+    return "\n".join(lines) + "\n"
 
 
 def render_runtime_update_dry_run(dry_run: RuntimeUpdateDryRun) -> str:
@@ -597,6 +817,8 @@ def cmd_runtime(argv: list[str]) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     status_parser = subparsers.add_parser("status", help="Inspect runtime status")
     status_parser.add_argument("--mirror-home", dest="mirror_home")
+    diagnose_parser = subparsers.add_parser("diagnose", help="Diagnose runtime drift")
+    diagnose_parser.add_argument("--mirror-home", dest="mirror_home")
     update_parser = subparsers.add_parser("update", help="Plan a runtime update")
     update_parser.add_argument("--dry-run", action="store_true", dest="dry_run")
     update_parser.add_argument("--mirror-home", dest="mirror_home")
@@ -609,6 +831,13 @@ def cmd_runtime(argv: list[str]) -> int:
         report = build_runtime_status(mirror_home_arg=args.mirror_home)
         sys.stdout.write(render_runtime_status(report))
         return 0 if report.status == "ready" else 1
+
+    if args.command == "diagnose":
+        report = build_runtime_status(mirror_home_arg=args.mirror_home)
+        entries = inspect_git_worktree(report.git.repository)
+        findings = diagnose_runtime(report, entries)
+        sys.stdout.write(render_runtime_diagnosis(findings))
+        return 0 if not findings else 1
 
     if args.command == "update":
         if not args.dry_run:

@@ -10,13 +10,16 @@ from memory.cli.runtime import (
     ExtensionHealth,
     GitStatus,
     GitUpdatePlan,
+    GitWorktreeEntry,
     RuntimeStatusReport,
     RuntimeUpdateDryRun,
     cmd_runtime,
+    diagnose_runtime,
     inspect_core_migrations,
     inspect_extension_health,
     inspect_git_update_plan,
     render_runtime_backup_created,
+    render_runtime_diagnosis,
     render_runtime_status,
     render_runtime_update_dry_run,
     verify_backup_archive,
@@ -51,7 +54,10 @@ def _report(**overrides) -> RuntimeStatusReport:
 def _write_command_extension(root: Path, extension_id: str = "hello") -> Path:
     ext_dir = root / "extensions" / extension_id
     (ext_dir / "migrations").mkdir(parents=True)
-    (ext_dir / "extension.py").write_text("def register(api):\n    return None\n", encoding="utf-8")
+    (ext_dir / "extension.py").write_text(
+        "def register(api):\n    return None\n",
+        encoding="utf-8",
+    )
     (ext_dir / "skill.yaml").write_text(
         f"""
 id: {extension_id}
@@ -183,6 +189,23 @@ def test_inspect_core_migrations_reports_missing_ids(tmp_path):
     assert health.missing == (MIGRATIONS[-1][0],)
 
 
+def test_inspect_core_migrations_reports_unknown_ids(tmp_path):
+    db_path = tmp_path / "memory.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("CREATE TABLE _migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+        conn.executemany(
+            "INSERT INTO _migrations (id, applied_at) VALUES (?, 'now')",
+            [(migration_id,) for migration_id, _ in MIGRATIONS],
+        )
+        conn.execute("INSERT INTO _migrations (id, applied_at) VALUES ('999_local', 'now')")
+
+    health = inspect_core_migrations(db_path, True)
+
+    assert health.ready is False
+    assert health.missing == ()
+    assert health.unknown == ("999_local",)
+
+
 def test_inspect_extension_health_reports_prompt_skill_ready(tmp_path):
     ext_dir = tmp_path / "extensions" / "prompt"
     ext_dir.mkdir(parents=True)
@@ -233,13 +256,16 @@ def test_inspect_extension_health_reports_pending_command_migration(tmp_path):
     db_path = tmp_path / "memory.db"
     with sqlite3.connect(db_path) as conn:
         conn.execute(
-            "CREATE TABLE _ext_migrations (extension_id TEXT, filename TEXT, checksum TEXT, applied_at TEXT, PRIMARY KEY (extension_id, filename))"
+            "CREATE TABLE _ext_migrations (extension_id TEXT, filename TEXT, "
+            "checksum TEXT, applied_at TEXT, PRIMARY KEY (extension_id, filename))"
         )
 
     health = inspect_extension_health(tmp_path, db_path, True)
 
     assert health == (
-        ExtensionHealth("hello", False, "pending migrations", pending_migrations=("001_init.sql",)),
+        ExtensionHealth(
+            "hello", False, "pending migrations", pending_migrations=("001_init.sql",)
+        ),
     )
 
 
@@ -252,7 +278,8 @@ def test_inspect_extension_health_reports_checksum_drift(tmp_path):
     db_path = tmp_path / "memory.db"
     with sqlite3.connect(db_path) as conn:
         conn.execute(
-            "CREATE TABLE _ext_migrations (extension_id TEXT, filename TEXT, checksum TEXT, applied_at TEXT, PRIMARY KEY (extension_id, filename))"
+            "CREATE TABLE _ext_migrations (extension_id TEXT, filename TEXT, "
+            "checksum TEXT, applied_at TEXT, PRIMARY KEY (extension_id, filename))"
         )
         run_migrations(conn, extension_id="hello", migrations_dir=ext_dir / "migrations")
     migration.write_text(
@@ -267,6 +294,66 @@ def test_inspect_extension_health_reports_checksum_drift(tmp_path):
             "hello", False, "migration checksum drift", drifted_migrations=("001_init.sql",)
         ),
     )
+
+
+def test_inspect_extension_health_reports_unknown_migration(tmp_path):
+    ext_dir = _write_command_extension(tmp_path)
+    (ext_dir / "migrations" / "002_current.sql").write_text(
+        "CREATE TABLE ext_hello_current (id INTEGER PRIMARY KEY);\n",
+        encoding="utf-8",
+    )
+    db_path = tmp_path / "memory.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "CREATE TABLE _ext_migrations (extension_id TEXT, filename TEXT, "
+            "checksum TEXT, applied_at TEXT, PRIMARY KEY (extension_id, filename))"
+        )
+        conn.execute(
+            "INSERT INTO _ext_migrations (extension_id, filename, checksum, applied_at) "
+            "VALUES ('hello', '001_legacy.sql', 'abc', 'now')"
+        )
+
+    health = inspect_extension_health(tmp_path, db_path, True)
+
+    assert health[0].ready is False
+    assert health[0].unknown_migrations == ("001_legacy.sql",)
+
+
+def test_diagnose_runtime_reports_drift_findings():
+    report = _report(
+        core_migrations=CoreMigrationHealth(
+            False,
+            len(MIGRATIONS),
+            len(MIGRATIONS),
+            (),
+            unknown=("999_local",),
+        ),
+        extension_health=(
+            ExtensionHealth(
+                "maestro",
+                False,
+                "unknown applied migrations",
+                unknown_migrations=("001_init.sql",),
+            ),
+        ),
+    )
+
+    findings = diagnose_runtime(report, (GitWorktreeEntry("??", "pi-session-x.html"),))
+
+    assert [finding.code for finding in findings] == [
+        "git_dirty",
+        "core_migration_unknown",
+        "extension_migration_unknown",
+    ]
+    assert "archive or ignore" in findings[0].recommendation
+
+
+def test_render_runtime_diagnosis_ready():
+    rendered = render_runtime_diagnosis(())
+
+    assert "Mirror runtime drift diagnosis" in rendered
+    assert "Findings: 0" in rendered
+    assert "Status: ready" in rendered
 
 
 def test_cmd_runtime_status_dispatches(monkeypatch, capsys):
@@ -285,7 +372,9 @@ def test_cmd_runtime_status_dispatches(monkeypatch, capsys):
 def test_cmd_runtime_status_returns_nonzero_when_attention_needed(monkeypatch, capsys):
     monkeypatch.setattr(
         "memory.cli.runtime.build_runtime_status",
-        lambda mirror_home_arg=None: _report(git=GitStatus(Path("/repo"), "main", "abc1234", True)),
+        lambda mirror_home_arg=None: _report(
+            git=GitStatus(Path("/repo"), "main", "abc1234", True)
+        ),
     )
 
     rc = cmd_runtime(["status"])
@@ -394,6 +483,29 @@ def test_render_runtime_update_dry_run_ready_plan_includes_backup_and_validation
     assert "Backup: required before real update" in rendered
     assert 'uv run pytest tests/unit/ tests/integration/ -m "not live"' in rendered
     assert "Dry-run result: ready" in rendered
+
+
+def test_cmd_runtime_diagnose_dispatches(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_runtime_status",
+        lambda mirror_home_arg=None: _report(
+            core_migrations=CoreMigrationHealth(
+                False,
+                len(MIGRATIONS),
+                len(MIGRATIONS),
+                (),
+                unknown=("999_local",),
+            )
+        ),
+    )
+    monkeypatch.setattr("memory.cli.runtime.inspect_git_worktree", lambda repository: ())
+
+    rc = cmd_runtime(["diagnose"])
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "core_migration_unknown" in out
+    assert "Status: attention needed" in out
 
 
 def test_cmd_runtime_update_requires_dry_run(capsys):

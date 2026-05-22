@@ -9,6 +9,14 @@ Update when a meaningful milestone is reached.
 
 ## Done
 
+### 2026-05-22 — Runtime drift diagnosis and local repair policy added
+
+Integrated the local drift reconciliation work on top of the remote self-update track. `python -m memory runtime diagnose` now classifies repository drift, unknown core migration rows, unknown extension migration rows, pending migrations, checksum drift, and invalid extension manifests into repair-oriented findings without mutating files or the database.
+
+Added `docs/process/runtime-repair-policy.md` and ignored `pi_exports/` so Pi `/export` HTML files can be preserved locally without dirtying the repository. The policy distinguishes Pi's resumable JSONL sessions under `~/.pi/agent/sessions/` from derived HTML exports, and requires backup before any database mutation.
+
+Verification: focused runtime and extension migration tests passed. Local production database drift was repaired under backup before this integration: obsolete personal core migration rows were removed, the retired pre-Ariad Maestro migration row was removed, and the retired `ext_maestro_check_runs` table was dropped.
+
 ### 2026-05-22 — Runtime backup and recovery prerequisite added
 
 Added `python -m memory runtime backup` and `python -m memory runtime backup --verify PATH` as the backup/recovery prerequisite for future self-update execution. Runtime backup reuses the existing database backup implementation, structurally verifies the resulting archive, and prints the manual recovery route without restoring files automatically.

@@ -199,6 +199,15 @@ class RuntimeUpdateResult:
 
 
 @dataclass(frozen=True)
+class ReleasePromotionResult:
+    target: str
+    stages: tuple[RuntimeUpdateStage, ...]
+    success: bool
+    dry_run: bool = False
+    recovery: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class RuntimeStatusReport:
     version: str
     git: GitStatus
@@ -1562,6 +1571,27 @@ def _git_fast_forward(upstream: str, cwd: Path) -> tuple[bool, str]:
     return True, ""
 
 
+def _git_create_tag(tag: str, cwd: Path) -> tuple[bool, str]:
+    code, _stdout, stderr = _run_git(["tag", tag, "HEAD"], cwd=cwd)
+    if code != 0:
+        return False, stderr or f"git tag {tag} HEAD failed"
+    return True, ""
+
+
+def _git_move_branch(branch: str, cwd: Path) -> tuple[bool, str]:
+    code, _stdout, stderr = _run_git(["branch", "--force", branch, "HEAD"], cwd=cwd)
+    if code != 0:
+        return False, stderr or f"git branch --force {branch} HEAD failed"
+    return True, ""
+
+
+def _git_push_ref(remote: str, ref: str, cwd: Path) -> tuple[bool, str]:
+    code, _stdout, stderr = _run_git(["push", remote, ref], cwd=cwd)
+    if code != 0:
+        return False, stderr or f"git push {remote} {ref} failed"
+    return True, ""
+
+
 def _git_installed_changes(
     repository: Path, previous_commit: str | None, new_commit: str | None, *, limit: int = 8
 ) -> tuple[str, ...]:
@@ -2064,6 +2094,156 @@ def run_runtime_update(
     )
 
 
+def run_release_promotion(
+    *,
+    target: str,
+    dry_run: bool = False,
+    push: bool = False,
+    stable_branch: str = "stable",
+    remote: str = "origin",
+) -> ReleasePromotionResult:
+    display_target = target if target.startswith("v") else f"v{target}"
+    stages: list[RuntimeUpdateStage] = []
+    recovery: list[str] = []
+    doctor = build_release_doctor_report(
+        target=display_target, stable_ref=f"{remote}/{stable_branch}"
+    )
+    if doctor.has_failures:
+        failures = sum(1 for check in doctor.checks if check.state == "fail")
+        stages.append(RuntimeUpdateStage("release doctor", "fail", f"{failures} failure(s)"))
+        recovery.append("Run: python -m memory runtime release-doctor --target " + display_target)
+        recovery.append("Resolve failed checks before release promotion.")
+        return ReleasePromotionResult(
+            display_target, tuple(stages), False, dry_run, tuple(recovery)
+        )
+    warning_count = sum(1 for check in doctor.checks if check.state == "warn")
+    detail = f"{warning_count} warning(s)" if warning_count else "ready"
+    stages.append(RuntimeUpdateStage("release doctor", "pass", detail))
+
+    repository = doctor.repository
+    if repository is None:
+        stages.append(RuntimeUpdateStage("repository", "fail", "repository unavailable"))
+        return ReleasePromotionResult(display_target, tuple(stages), False, dry_run)
+
+    head = _git_ref_full_commit(repository, "HEAD")
+    if head is None:
+        stages.append(RuntimeUpdateStage("HEAD", "fail", "HEAD unavailable"))
+        return ReleasePromotionResult(display_target, tuple(stages), False, dry_run)
+
+    tag_commit = _git_ref_full_commit(repository, display_target)
+    if tag_commit is None:
+        if dry_run:
+            stages.append(
+                RuntimeUpdateStage("tag", "skip", f"would create {display_target} at HEAD")
+            )
+        else:
+            ok, err = _git_create_tag(display_target, repository)
+            if not ok:
+                stages.append(RuntimeUpdateStage("tag", "fail", err))
+                return ReleasePromotionResult(display_target, tuple(stages), False, dry_run)
+            stages.append(RuntimeUpdateStage("tag", "pass", f"created {display_target} at HEAD"))
+    elif tag_commit == head:
+        stages.append(RuntimeUpdateStage("tag", "pass", f"{display_target} already at HEAD"))
+    else:
+        stages.append(
+            RuntimeUpdateStage("tag", "fail", f"{display_target} points to {tag_commit[:7]}")
+        )
+        recovery.append("Do not move release tags automatically; inspect tag history manually.")
+        return ReleasePromotionResult(
+            display_target, tuple(stages), False, dry_run, tuple(recovery)
+        )
+
+    stable_commit = _git_ref_full_commit(repository, stable_branch)
+    if stable_commit is None:
+        if dry_run:
+            stages.append(
+                RuntimeUpdateStage("stable branch", "skip", f"would create {stable_branch} at HEAD")
+            )
+        else:
+            ok, err = _git_move_branch(stable_branch, repository)
+            if not ok:
+                stages.append(RuntimeUpdateStage("stable branch", "fail", err))
+                return ReleasePromotionResult(display_target, tuple(stages), False, dry_run)
+            stages.append(
+                RuntimeUpdateStage("stable branch", "pass", f"created {stable_branch} at HEAD")
+            )
+    elif stable_commit == head:
+        stages.append(
+            RuntimeUpdateStage("stable branch", "pass", f"{stable_branch} already at HEAD")
+        )
+    else:
+        stable_is_ancestor = _git_ref_contains(repository, stable_branch, "HEAD")
+        if stable_is_ancestor is True:
+            if dry_run:
+                stages.append(
+                    RuntimeUpdateStage(
+                        "stable branch", "skip", f"would fast-forward {stable_branch} to HEAD"
+                    )
+                )
+            else:
+                ok, err = _git_move_branch(stable_branch, repository)
+                if not ok:
+                    stages.append(RuntimeUpdateStage("stable branch", "fail", err))
+                    return ReleasePromotionResult(display_target, tuple(stages), False, dry_run)
+                stages.append(
+                    RuntimeUpdateStage(
+                        "stable branch", "pass", f"fast-forwarded {stable_branch} to HEAD"
+                    )
+                )
+        else:
+            stages.append(
+                RuntimeUpdateStage(
+                    "stable branch", "fail", f"{stable_branch} is not an ancestor of HEAD"
+                )
+            )
+            recovery.append("Reconcile stable branch history manually before promotion.")
+            return ReleasePromotionResult(
+                display_target, tuple(stages), False, dry_run, tuple(recovery)
+            )
+
+    if push:
+        if dry_run:
+            stages.append(RuntimeUpdateStage("push tag", "skip", f"would push {display_target}"))
+            stages.append(RuntimeUpdateStage("push stable", "skip", f"would push {stable_branch}"))
+        else:
+            ok, err = _git_push_ref(remote, display_target, repository)
+            if not ok:
+                stages.append(RuntimeUpdateStage("push tag", "fail", err))
+                return ReleasePromotionResult(display_target, tuple(stages), False, dry_run)
+            stages.append(RuntimeUpdateStage("push tag", "pass", display_target))
+            ok, err = _git_push_ref(remote, stable_branch, repository)
+            if not ok:
+                stages.append(RuntimeUpdateStage("push stable", "fail", err))
+                return ReleasePromotionResult(display_target, tuple(stages), False, dry_run)
+            stages.append(RuntimeUpdateStage("push stable", "pass", stable_branch))
+    else:
+        stages.append(RuntimeUpdateStage("push", "skip", "use --push to publish tag and stable"))
+
+    return ReleasePromotionResult(display_target, tuple(stages), True, dry_run)
+
+
+def render_release_promotion_result(result: ReleasePromotionResult) -> str:
+    lines = ["Mirror runtime release promotion", ""]
+    lines.append(f"Target: {result.target}")
+    lines.append(f"Mode: {'dry-run' if result.dry_run else 'execute'}")
+    lines.append("")
+    marks = {"pass": "✓", "warn": "!", "fail": "✗", "skip": "-"}
+    for stage in result.stages:
+        mark = marks.get(stage.state, "?")
+        line = f"[{mark}] {stage.name}"
+        if stage.detail:
+            line = f"{line}: {stage.detail}"
+        lines.append(line)
+    lines.append("")
+    lines.append(f"Release promotion result: {'success' if result.success else 'failed'}")
+    if result.recovery:
+        lines.append("")
+        lines.append("Recovery:")
+        for entry in result.recovery:
+            lines.append(f"- {entry}")
+    return "\n".join(lines) + "\n"
+
+
 def render_runtime_update_result(result: RuntimeUpdateResult) -> str:
     lines: list[str] = ["Mirror runtime update", ""]
     marks = {"pass": "✓", "fail": "✗", "skip": "-"}
@@ -2137,6 +2317,14 @@ def cmd_runtime(argv: list[str]) -> int:
     )
     release_doctor_parser.add_argument("--target", required=True)
     release_doctor_parser.add_argument("--stable", default="origin/stable")
+    release_promote_parser = subparsers.add_parser(
+        "release-promote", help="Promote a release to the stable channel"
+    )
+    release_promote_parser.add_argument("--target", required=True)
+    release_promote_parser.add_argument("--stable", default="stable")
+    release_promote_parser.add_argument("--remote", default="origin")
+    release_promote_parser.add_argument("--dry-run", action="store_true")
+    release_promote_parser.add_argument("--push", action="store_true")
     backup_parser = subparsers.add_parser("backup", help="Create or verify a runtime backup")
     backup_parser.add_argument("--mirror-home", dest="mirror_home")
     backup_parser.add_argument("--verify", dest="verify")
@@ -2218,6 +2406,17 @@ def cmd_runtime(argv: list[str]) -> int:
         release_report = build_release_doctor_report(target=args.target, stable_ref=args.stable)
         sys.stdout.write(render_release_doctor(release_report))
         return 1 if release_report.has_failures else 0
+
+    if args.command == "release-promote":
+        promotion = run_release_promotion(
+            target=args.target,
+            dry_run=args.dry_run,
+            push=args.push,
+            stable_branch=args.stable,
+            remote=args.remote,
+        )
+        sys.stdout.write(render_release_promotion_result(promotion))
+        return 0 if promotion.success else 1
 
     if args.command == "backup":
         if args.verify:

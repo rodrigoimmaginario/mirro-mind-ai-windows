@@ -14,6 +14,7 @@ from memory.cli.runtime import (
     GitWorktreeEntry,
     ReleaseDoctorCheck,
     ReleaseDoctorReport,
+    ReleasePromotionResult,
     RuntimeReleaseNote,
     RuntimeStatusReport,
     RuntimeUpdateAvailability,
@@ -32,6 +33,7 @@ from memory.cli.runtime import (
     inspect_git_update_plan,
     read_release_note_from_ref,
     render_release_doctor,
+    render_release_promotion_result,
     render_runtime_backup_created,
     render_runtime_diagnosis,
     render_runtime_status,
@@ -39,6 +41,7 @@ from memory.cli.runtime import (
     render_runtime_update_dry_run,
     render_runtime_update_result,
     render_runtime_version,
+    run_release_promotion,
     run_runtime_update,
     run_runtime_update_repair,
     verify_backup_archive,
@@ -1832,3 +1835,197 @@ def test_cmd_runtime_release_doctor_dispatches(monkeypatch, tmp_path, capsys):
 
     assert rc == 1
     assert "Release doctor result: failed" in capsys.readouterr().out
+
+
+# CV9.E3.S16 — Stable Promotion Execution Path
+
+
+def _doctor_report(tmp_path, *, failures=False):
+    checks = (
+        ReleaseDoctorCheck(
+            "package version", "fail" if failures else "pass", "bad" if failures else "0.9.0"
+        ),
+    )
+    return ReleaseDoctorReport("v0.9.0", tmp_path, checks)
+
+
+def test_render_release_promotion_result_success():
+    result = ReleasePromotionResult(
+        "v0.9.0",
+        (
+            RuntimeUpdateStage("release doctor", "pass", "ready"),
+            RuntimeUpdateStage("tag", "pass", "created v0.9.0 at HEAD"),
+            RuntimeUpdateStage("push", "skip", "use --push to publish tag and stable"),
+        ),
+        True,
+    )
+
+    rendered = render_release_promotion_result(result)
+
+    assert "Mirror runtime release promotion" in rendered
+    assert "Target: v0.9.0" in rendered
+    assert "[✓] release doctor: ready" in rendered
+    assert "[-] push: use --push" in rendered
+    assert "Release promotion result: success" in rendered
+
+
+def test_run_release_promotion_blocks_on_doctor_failures(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_release_doctor_report",
+        lambda target, stable_ref: _doctor_report(tmp_path, failures=True),
+    )
+
+    result = run_release_promotion(target="v0.9.0")
+
+    assert result.success is False
+    assert result.stages[0].name == "release doctor"
+    assert result.stages[0].state == "fail"
+    assert any("release-doctor" in entry for entry in result.recovery)
+
+
+def test_run_release_promotion_dry_run_does_not_mutate(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_release_doctor_report",
+        lambda target, stable_ref: _doctor_report(tmp_path),
+    )
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_ref_full_commit",
+        lambda repository, ref: "abcdef1234567890" if ref == "HEAD" else None,
+    )
+    called: list[str] = []
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_create_tag",
+        lambda tag, cwd: called.append("tag") or (True, ""),
+    )
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_move_branch",
+        lambda branch, cwd: called.append("branch") or (True, ""),
+    )
+
+    result = run_release_promotion(target="v0.9.0", dry_run=True)
+
+    assert result.success is True
+    assert result.dry_run is True
+    assert called == []
+    assert any(stage.name == "tag" and stage.state == "skip" for stage in result.stages)
+    assert any(stage.name == "stable branch" and stage.state == "skip" for stage in result.stages)
+
+
+def test_run_release_promotion_creates_missing_tag_and_stable(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_release_doctor_report",
+        lambda target, stable_ref: _doctor_report(tmp_path),
+    )
+    refs: dict[str, str | None] = {"HEAD": "abcdef1234567890", "v0.9.0": None, "stable": None}
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_ref_full_commit", lambda repository, ref: refs.get(ref)
+    )
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_create_tag",
+        lambda tag, cwd: (
+            calls.append(("tag", tag)) or refs.__setitem__(tag, refs["HEAD"]) or (True, "")
+        ),
+    )
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_move_branch",
+        lambda branch, cwd: (
+            calls.append(("branch", branch)) or refs.__setitem__(branch, refs["HEAD"]) or (True, "")
+        ),
+    )
+
+    result = run_release_promotion(target="v0.9.0")
+
+    assert result.success is True
+    assert ("tag", "v0.9.0") in calls
+    assert ("branch", "stable") in calls
+    assert any(stage.name == "push" and stage.state == "skip" for stage in result.stages)
+
+
+def test_run_release_promotion_reuses_existing_tag_at_head(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_release_doctor_report",
+        lambda target, stable_ref: _doctor_report(tmp_path),
+    )
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_ref_full_commit",
+        lambda repository, ref: "abcdef1234567890" if ref in {"HEAD", "v0.9.0", "stable"} else None,
+    )
+
+    result = run_release_promotion(target="v0.9.0")
+
+    assert result.success is True
+    assert any(
+        stage.name == "tag" and "already at HEAD" in (stage.detail or "") for stage in result.stages
+    )
+    assert any(
+        stage.name == "stable branch" and "already at HEAD" in (stage.detail or "")
+        for stage in result.stages
+    )
+
+
+def test_run_release_promotion_blocks_divergent_local_stable(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_release_doctor_report",
+        lambda target, stable_ref: _doctor_report(tmp_path),
+    )
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_ref_full_commit",
+        lambda repository, ref: {
+            "HEAD": "abcdef1234567890",
+            "v0.9.0": "abcdef1234567890",
+            "stable": "1111111111111111",
+        }.get(ref),
+    )
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_ref_contains", lambda repository, ancestor, descendant: False
+    )
+
+    result = run_release_promotion(target="v0.9.0")
+
+    assert result.success is False
+    assert any(stage.name == "stable branch" and stage.state == "fail" for stage in result.stages)
+
+
+def test_run_release_promotion_pushes_only_when_requested(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_release_doctor_report",
+        lambda target, stable_ref: _doctor_report(tmp_path),
+    )
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_ref_full_commit",
+        lambda repository, ref: "abcdef1234567890" if ref in {"HEAD", "v0.9.0", "stable"} else None,
+    )
+    pushes: list[str] = []
+    monkeypatch.setattr(
+        "memory.cli.runtime._git_push_ref",
+        lambda remote, ref, cwd: pushes.append(ref) or (True, ""),
+    )
+
+    result = run_release_promotion(target="v0.9.0", push=True)
+
+    assert result.success is True
+    assert pushes == ["v0.9.0", "stable"]
+    assert any(stage.name == "push tag" and stage.state == "pass" for stage in result.stages)
+    assert any(stage.name == "push stable" and stage.state == "pass" for stage in result.stages)
+
+
+def test_cmd_runtime_release_promote_dispatches(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "memory.cli.runtime.run_release_promotion",
+        lambda target, dry_run=False, push=False, stable_branch="stable", remote="origin": (
+            ReleasePromotionResult(
+                target,
+                (RuntimeUpdateStage("release doctor", "pass", "ready"),),
+                True,
+                dry_run,
+            )
+        ),
+    )
+
+    rc = cmd_runtime(["release-promote", "--target", "v0.9.0", "--dry-run"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Mirror runtime release promotion" in out
+    assert "Mode: dry-run" in out

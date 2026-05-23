@@ -38,7 +38,7 @@ over time.
 | [CV9.E3.S13](cv9-e3-s13-release-aware-update-notices/index.md) | Release-Aware Update Notices | ✅ Done |
 | [CV9.E3.S14](cv9-e3-s14-release-notes-skill-parity/index.md) | Release Notes Skill Parity | ✅ Done |
 | [CV9.E3.S15](cv9-e3-s15-release-promotion-doctor/index.md) | Release Promotion Checklist / Doctor | ✅ Done |
-| CV9.E3.S16 | Stable Promotion Execution Path | 🟡 Planned |
+| [CV9.E3.S16](cv9-e3-s16-stable-promotion-execution/index.md) | Stable Promotion Execution Path | ✅ Done |
 | CV9.E3.S17 | Fresh User Stable Update Smoke | 🟡 Planned |
 
 ---

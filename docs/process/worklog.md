@@ -12,6 +12,14 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-23 — Stable promotion execution path added
+
+Completed CV9.E3.S16. Added `python -m memory runtime release-promote --target vX.Y.Z [--dry-run] [--push]` as the controlled stable promotion path. Promotion runs the release doctor first and blocks on failures, creates a missing release tag at `HEAD`, reuses tags already at `HEAD`, refuses mismatched tags, creates or fast-forwards local `stable` only when safe, and publishes only when `--push` is explicit.
+
+Dry-run does not mutate tags, branches, refs, or files. The command does not fetch, force-push, rewrite tags, bump versions, write release notes, back up, migrate, or update production clones.
+
+Validation: 98 targeted runtime tests passed; ruff, format check, story-scoped mypy, and `git diff --check` passed. Manual dry-run in the dirty dev clone failed safely because `v0.9.0` is not prepared; no tags or branches were created.
+
 ### 2026-05-23 — Release promotion doctor added
 
 Completed CV9.E3.S15. Added `python -m memory runtime release-doctor --target vX.Y.Z` as a read-only release promotion preflight. The doctor checks repository availability, clean git state, package version, release-note file, release-note heading, release index link, tag state, and stable ref relationship, then renders a pass/warn/fail checklist.

@@ -66,3 +66,44 @@ Progress: ███████░ 88%
 - The horizontal board makes planned sequence and neighboring stories visible without turning the view into a long checklist.
 - This view distinguishes roadmap flow (`S13`, `S14`, `S15`) from task flow (the cards inside S14). Maestro may need both levels: story kanban and task kanban.
 - The adopted visual grammar reserves color for taxonomy (`CV`, `E`, `S`) and symbols for method state (`✓`, `◉`, `○`, `✕`). This avoids confusing lifecycle progress with roadmap level.
+- Navigator feedback after story close: transitions between story, epic, and CV need their own visualization. This is not an internal checkpoint view. It answers what was completed, what parent structure absorbed it, what capability it unlocked, what remains, and why the next card is the coherent next move.
+
+## Transition View Pattern
+
+Use this view when moving from one story, epic, or CV to the next.
+
+```text
+Completed
+🟩[S14] Release Notes Skill Parity
+Status: Done
+Commit: e56ed30
+
+Integrated into
+🟦[E3] Distribution & Tooling
+
+Unlocked
+- Release notes are visible across runtime skill surfaces.
+- Stable update communication can point users to release context.
+
+Remaining
+🟩[S15] Release Promotion Checklist / Doctor
+🟩[S16] Stable Promotion Execution Path
+🟩[S17] Fresh User Stable Update Smoke
+
+Recommended next
+🟩[S15] Release Promotion Checklist / Doctor
+
+Why
+Release notes are now visible and stable updates speak in release terms. The next missing piece is a repeatable preflight before promoting stable.
+```
+
+Named components:
+
+- `Completed Card`
+- `Parent Integration`
+- `Unlocked Capabilities`
+- `Remaining Board`
+- `Recommended Next`
+- `Rationale`
+
+Hypothesis: transitions are metabolic views. They show what the system absorbed and what movement that absorption makes possible.

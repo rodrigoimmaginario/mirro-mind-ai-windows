@@ -12,6 +12,14 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-23 — Release promotion doctor added
+
+Completed CV9.E3.S15. Added `python -m memory runtime release-doctor --target vX.Y.Z` as a read-only release promotion preflight. The doctor checks repository availability, clean git state, package version, release-note file, release-note heading, release index link, tag state, and stable ref relationship, then renders a pass/warn/fail checklist.
+
+The command does not fetch, tag, merge, push, edit files, back up, migrate, or modify refs. Warnings return zero because a pre-promotion candidate may legitimately lack a tag or stable advancement; failures return non-zero for incoherent or unsafe states.
+
+Validation: 90 targeted runtime tests passed; ruff, format check, story-scoped mypy, and `git diff --check` passed. Manual smoke in the dirty dev clone showed expected read-only failures for unprepared `v0.9.0` and historical `v0.8.0` tag mismatch against current `HEAD`.
+
 ### 2026-05-23 — Release-note skill parity completed
 
 Completed CV9.E3.S14. Release notes are now discoverable across supported runtime skill surfaces: Pi keeps `/mm-release-notes`, Gemini/Codex shared skills expose `mm-release-notes` through `.agents/skills`, and Claude Code has `/mm:release-notes`. Help surfaces, `AGENTS.md`, and `REFERENCE.md` now list the command.

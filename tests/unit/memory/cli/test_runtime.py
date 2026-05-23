@@ -12,6 +12,8 @@ from memory.cli.runtime import (
     GitStatus,
     GitUpdatePlan,
     GitWorktreeEntry,
+    ReleaseDoctorCheck,
+    ReleaseDoctorReport,
     RuntimeReleaseNote,
     RuntimeStatusReport,
     RuntimeUpdateAvailability,
@@ -19,6 +21,7 @@ from memory.cli.runtime import (
     RuntimeUpdateResult,
     RuntimeUpdateStage,
     RuntimeVersionReport,
+    build_release_doctor_report,
     build_runtime_update_dry_run,
     check_runtime_update_availability,
     cmd_runtime,
@@ -28,6 +31,7 @@ from memory.cli.runtime import (
     inspect_extension_health,
     inspect_git_update_plan,
     read_release_note_from_ref,
+    render_release_doctor,
     render_runtime_backup_created,
     render_runtime_diagnosis,
     render_runtime_status,
@@ -1628,3 +1632,203 @@ def test_cmd_runtime_release_notes_dispatches(monkeypatch, tmp_path, capsys):
 
     assert rc == 0
     assert "Release: v0.8.0 — Runtime Update Awareness" in capsys.readouterr().out
+
+
+# CV9.E3.S15 — Release Promotion Checklist / Doctor
+
+
+def _write_release_files(repo: Path, version: str = "v0.9.0") -> None:
+    releases = repo / "docs" / "releases"
+    releases.mkdir(parents=True)
+    (releases / f"{version}.md").write_text(
+        f"""---
+digest: >
+  Release summary.
+---
+
+# {version} — Self-Update Done
+
+## Highlights
+
+- Release doctor.
+""",
+        encoding="utf-8",
+    )
+    (releases / "index.md").write_text(
+        f"# Releases\n\n- [{version} — Self-Update Done]({version}.md)\n", encoding="utf-8"
+    )
+
+
+def _write_pyproject(repo: Path, version: str = "0.9.0") -> None:
+    (repo / "pyproject.toml").write_text(
+        f'[project]\nname = "mirror"\nversion = "{version}"\n', encoding="utf-8"
+    )
+
+
+def test_render_release_doctor_result_with_warnings(tmp_path):
+    report = ReleaseDoctorReport(
+        "v0.9.0",
+        tmp_path,
+        (
+            ReleaseDoctorCheck("git tree clean", "pass"),
+            ReleaseDoctorCheck("release tag", "warn", "v0.9.0 not created yet"),
+        ),
+    )
+
+    rendered = render_release_doctor(report)
+
+    assert "Mirror runtime release doctor" in rendered
+    assert "Target: v0.9.0" in rendered
+    assert "[✓] git tree clean" in rendered
+    assert "[!] release tag: v0.9.0 not created yet" in rendered
+    assert "Release doctor result: ready with warnings" in rendered
+    assert "read-only" in rendered
+
+
+def test_build_release_doctor_report_passes_local_files_with_expected_warnings(
+    monkeypatch, tmp_path
+):
+    _write_pyproject(tmp_path)
+    _write_release_files(tmp_path)
+    monkeypatch.setattr("memory.cli.runtime._resolve_repo_root", lambda start: tmp_path)
+    monkeypatch.setattr(
+        "memory.cli.runtime.inspect_git",
+        lambda start: GitStatus(tmp_path, "main", "abc1234", False),
+    )
+
+    def fake_ref(repository, ref):
+        if ref == "HEAD":
+            return "abcdef1234567890"
+        return None
+
+    monkeypatch.setattr("memory.cli.runtime._git_ref_full_commit", fake_ref)
+
+    report = build_release_doctor_report(target="v0.9.0", start=tmp_path)
+
+    assert not report.has_failures
+    assert ReleaseDoctorCheck("package version", "pass", "0.9.0") in report.checks
+    assert any(check.name == "release tag" and check.state == "warn" for check in report.checks)
+    assert any(check.name == "stable ref" and check.state == "warn" for check in report.checks)
+
+
+def test_build_release_doctor_report_fails_dirty_tree(monkeypatch, tmp_path):
+    _write_pyproject(tmp_path)
+    _write_release_files(tmp_path)
+    monkeypatch.setattr("memory.cli.runtime._resolve_repo_root", lambda start: tmp_path)
+    monkeypatch.setattr(
+        "memory.cli.runtime.inspect_git",
+        lambda start: GitStatus(tmp_path, "main", "abc1234", True),
+    )
+    monkeypatch.setattr("memory.cli.runtime._git_ref_full_commit", lambda repository, ref: None)
+
+    report = build_release_doctor_report(target="v0.9.0", start=tmp_path)
+
+    assert report.has_failures
+    assert any(check.name == "git tree clean" and check.state == "fail" for check in report.checks)
+
+
+def test_build_release_doctor_report_fails_version_mismatch(monkeypatch, tmp_path):
+    _write_pyproject(tmp_path, "0.8.0")
+    _write_release_files(tmp_path)
+    monkeypatch.setattr("memory.cli.runtime._resolve_repo_root", lambda start: tmp_path)
+    monkeypatch.setattr(
+        "memory.cli.runtime.inspect_git",
+        lambda start: GitStatus(tmp_path, "main", "abc1234", False),
+    )
+    monkeypatch.setattr("memory.cli.runtime._git_ref_full_commit", lambda repository, ref: None)
+
+    report = build_release_doctor_report(target="v0.9.0", start=tmp_path)
+
+    assert report.has_failures
+    assert any(
+        check.name == "package version" and check.state == "fail" and "0.8.0" in check.detail
+        for check in report.checks
+    )
+
+
+def test_build_release_doctor_report_fails_missing_release_note(monkeypatch, tmp_path):
+    _write_pyproject(tmp_path)
+    (tmp_path / "docs" / "releases").mkdir(parents=True)
+    (tmp_path / "docs" / "releases" / "index.md").write_text("# Releases\n", encoding="utf-8")
+    monkeypatch.setattr("memory.cli.runtime._resolve_repo_root", lambda start: tmp_path)
+    monkeypatch.setattr(
+        "memory.cli.runtime.inspect_git",
+        lambda start: GitStatus(tmp_path, "main", "abc1234", False),
+    )
+    monkeypatch.setattr("memory.cli.runtime._git_ref_full_commit", lambda repository, ref: None)
+
+    report = build_release_doctor_report(target="v0.9.0", start=tmp_path)
+
+    assert report.has_failures
+    assert any(
+        check.name == "release note exists" and check.state == "fail" for check in report.checks
+    )
+    assert any(check.name == "release index" and check.state == "fail" for check in report.checks)
+
+
+def test_build_release_doctor_report_fails_tag_mismatch(monkeypatch, tmp_path):
+    _write_pyproject(tmp_path)
+    _write_release_files(tmp_path)
+    monkeypatch.setattr("memory.cli.runtime._resolve_repo_root", lambda start: tmp_path)
+    monkeypatch.setattr(
+        "memory.cli.runtime.inspect_git",
+        lambda start: GitStatus(tmp_path, "main", "abcdef1", False),
+    )
+
+    def fake_ref(repository, ref):
+        return {"HEAD": "abcdef1234567890", "v0.9.0": "9999999999999999"}.get(ref)
+
+    monkeypatch.setattr("memory.cli.runtime._git_ref_full_commit", fake_ref)
+
+    report = build_release_doctor_report(target="v0.9.0", start=tmp_path)
+
+    assert report.has_failures
+    assert any(check.name == "release tag" and check.state == "fail" for check in report.checks)
+
+
+def test_build_release_doctor_report_warns_when_stable_behind(monkeypatch, tmp_path):
+    _write_pyproject(tmp_path)
+    _write_release_files(tmp_path)
+    monkeypatch.setattr("memory.cli.runtime._resolve_repo_root", lambda start: tmp_path)
+    monkeypatch.setattr(
+        "memory.cli.runtime.inspect_git",
+        lambda start: GitStatus(tmp_path, "main", "abcdef1", False),
+    )
+
+    def fake_ref(repository, ref):
+        return {
+            "HEAD": "abcdef1234567890",
+            "v0.9.0": "abcdef1234567890",
+            "origin/stable": "1111111111111111",
+        }.get(ref)
+
+    def fake_contains(repository, ancestor, descendant):
+        if ancestor == "origin/stable" and descendant == "HEAD":
+            return True
+        if ancestor == "HEAD" and descendant == "origin/stable":
+            return False
+        return None
+
+    monkeypatch.setattr("memory.cli.runtime._git_ref_full_commit", fake_ref)
+    monkeypatch.setattr("memory.cli.runtime._git_ref_contains", fake_contains)
+
+    report = build_release_doctor_report(target="v0.9.0", start=tmp_path)
+
+    assert not report.has_failures
+    assert any(check.name == "stable ref" and check.state == "warn" for check in report.checks)
+
+
+def test_cmd_runtime_release_doctor_dispatches(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(
+        "memory.cli.runtime.build_release_doctor_report",
+        lambda target, stable_ref="origin/stable": ReleaseDoctorReport(
+            target,
+            tmp_path,
+            (ReleaseDoctorCheck("package version", "fail", "expected 0.9.0, found 0.8.0"),),
+        ),
+    )
+
+    rc = cmd_runtime(["release-doctor", "--target", "v0.9.0"])
+
+    assert rc == 1
+    assert "Release doctor result: failed" in capsys.readouterr().out

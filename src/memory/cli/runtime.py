@@ -150,6 +150,24 @@ class RuntimeReleaseNote:
 
 
 @dataclass(frozen=True)
+class ReleaseDoctorCheck:
+    name: str
+    state: str
+    detail: str | None = None
+
+
+@dataclass(frozen=True)
+class ReleaseDoctorReport:
+    target: str
+    repository: Path | None
+    checks: tuple[ReleaseDoctorCheck, ...]
+
+    @property
+    def has_failures(self) -> bool:
+        return any(check.state == "fail" for check in self.checks)
+
+
+@dataclass(frozen=True)
 class RuntimeUpdateDryRun:
     status_report: RuntimeStatusReport
     git_plan: GitUpdatePlan | None
@@ -427,6 +445,167 @@ def render_release_note(note: RuntimeReleaseNote | None) -> str:
         lines.append("Highlights:")
         for highlight in note.highlights:
             lines.append(f"- {highlight}")
+    return "\n".join(lines) + "\n"
+
+
+def _normalize_version(version: str) -> str:
+    return version.strip()[1:] if version.strip().startswith("v") else version.strip()
+
+
+def _target_release_path(repository: Path, target: str) -> Path:
+    version = target if target.startswith("v") else f"v{target}"
+    return repository / "docs" / "releases" / f"{version}.md"
+
+
+def _git_ref_full_commit(repository: Path, ref: str) -> str | None:
+    code, stdout, _stderr = _run_git(["rev-parse", ref], cwd=repository)
+    if code != 0 or not stdout:
+        return None
+    return stdout.strip()
+
+
+def _git_ref_contains(repository: Path, ancestor: str, descendant: str) -> bool | None:
+    code, _stdout, _stderr = _run_git(
+        ["merge-base", "--is-ancestor", ancestor, descendant], cwd=repository
+    )
+    if code == 0:
+        return True
+    if code == 1:
+        return False
+    return None
+
+
+def _release_note_heading_matches(path: Path, target: str) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    wanted = target if target.startswith("v") else f"v{target}"
+    return bool(re.search(rf"^#\s+{re.escape(wanted)}\s+—\s+.+$", text, re.MULTILINE))
+
+
+def _release_index_links_target(repository: Path, target: str) -> bool:
+    wanted = target if target.startswith("v") else f"v{target}"
+    index_path = repository / "docs" / "releases" / "index.md"
+    try:
+        text = index_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return f"{wanted}.md" in text
+
+
+def build_release_doctor_report(
+    *, target: str, start: Path | None = None, stable_ref: str = "origin/stable"
+) -> ReleaseDoctorReport:
+    start_path = (start or Path.cwd()).resolve()
+    repository = _resolve_repo_root(start_path)
+    checks: list[ReleaseDoctorCheck] = []
+    normalized_target = _normalize_version(target)
+    display_target = f"v{normalized_target}"
+
+    if repository is None:
+        return ReleaseDoctorReport(
+            display_target,
+            None,
+            (ReleaseDoctorCheck("repository", "fail", "not a git repository"),),
+        )
+
+    checks.append(ReleaseDoctorCheck("repository", "pass", str(repository)))
+    git = inspect_git(repository)
+    if git.error:
+        checks.append(ReleaseDoctorCheck("git status", "fail", git.error))
+    elif git.dirty:
+        checks.append(ReleaseDoctorCheck("git tree clean", "fail", "working tree is dirty"))
+    else:
+        checks.append(ReleaseDoctorCheck("git tree clean", "pass"))
+
+    package = _version_from_pyproject(repository)
+    if package == normalized_target:
+        checks.append(ReleaseDoctorCheck("package version", "pass", package))
+    else:
+        detail = f"expected {normalized_target}, found {package or 'unknown'}"
+        checks.append(ReleaseDoctorCheck("package version", "fail", detail))
+
+    release_path = _target_release_path(repository, display_target)
+    if release_path.exists():
+        checks.append(ReleaseDoctorCheck("release note exists", "pass", str(release_path)))
+        if _release_note_heading_matches(release_path, display_target):
+            checks.append(ReleaseDoctorCheck("release note heading", "pass", display_target))
+        else:
+            checks.append(
+                ReleaseDoctorCheck(
+                    "release note heading", "fail", f"missing heading for {display_target}"
+                )
+            )
+    else:
+        checks.append(ReleaseDoctorCheck("release note exists", "fail", str(release_path)))
+        checks.append(ReleaseDoctorCheck("release note heading", "fail", "release note missing"))
+
+    if _release_index_links_target(repository, display_target):
+        checks.append(ReleaseDoctorCheck("release index", "pass", f"links {display_target}"))
+    else:
+        checks.append(ReleaseDoctorCheck("release index", "fail", f"missing {display_target}.md"))
+
+    head = _git_ref_full_commit(repository, "HEAD")
+    tag_commit = _git_ref_full_commit(repository, display_target)
+    if tag_commit is None:
+        checks.append(
+            ReleaseDoctorCheck("release tag", "warn", f"{display_target} not created yet")
+        )
+    elif head and tag_commit == head:
+        checks.append(ReleaseDoctorCheck("release tag", "pass", f"{display_target} points to HEAD"))
+    else:
+        checks.append(
+            ReleaseDoctorCheck(
+                "release tag", "fail", f"{display_target} points to {tag_commit[:7]}"
+            )
+        )
+
+    stable_commit = _git_ref_full_commit(repository, stable_ref)
+    if stable_commit is None:
+        checks.append(
+            ReleaseDoctorCheck("stable ref", "warn", f"{stable_ref} not available locally")
+        )
+    elif head is None:
+        checks.append(ReleaseDoctorCheck("stable ref", "fail", "HEAD unavailable"))
+    elif stable_commit == head:
+        checks.append(ReleaseDoctorCheck("stable ref", "pass", f"{stable_ref} is at HEAD"))
+    else:
+        stable_contains_head = _git_ref_contains(repository, head, stable_ref)
+        head_contains_stable = _git_ref_contains(repository, stable_ref, "HEAD")
+        if stable_contains_head is True:
+            checks.append(ReleaseDoctorCheck("stable ref", "pass", f"{stable_ref} contains HEAD"))
+        elif head_contains_stable is True:
+            checks.append(ReleaseDoctorCheck("stable ref", "warn", f"{stable_ref} is behind HEAD"))
+        elif stable_contains_head is False and head_contains_stable is False:
+            checks.append(
+                ReleaseDoctorCheck("stable ref", "fail", f"{stable_ref} diverged from HEAD")
+            )
+        else:
+            checks.append(ReleaseDoctorCheck("stable ref", "fail", f"cannot compare {stable_ref}"))
+
+    return ReleaseDoctorReport(display_target, repository, tuple(checks))
+
+
+def render_release_doctor(report: ReleaseDoctorReport) -> str:
+    lines = ["Mirror runtime release doctor", ""]
+    lines.append(f"Target: {report.target}")
+    lines.append(f"Repository: {report.repository if report.repository else 'unknown'}")
+    lines.append("")
+    marks = {"pass": "✓", "warn": "!", "fail": "✗"}
+    for check in report.checks:
+        mark = marks.get(check.state, "?")
+        line = f"[{mark}] {check.name}"
+        if check.detail:
+            line = f"{line}: {check.detail}"
+        lines.append(line)
+    lines.append("")
+    lines.append(
+        f"Release doctor result: {'failed' if report.has_failures else 'ready with warnings' if any(check.state == 'warn' for check in report.checks) else 'ready'}"
+    )
+    lines.append(
+        "Note: release doctor is read-only; it does not tag, merge, push, fetch, or edit files."
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -1953,6 +2132,11 @@ def cmd_runtime(argv: list[str]) -> int:
         "release-notes", help="Show Mirror runtime release notes"
     )
     release_notes_parser.add_argument("version", nargs="?", default="latest")
+    release_doctor_parser = subparsers.add_parser(
+        "release-doctor", help="Inspect release promotion readiness"
+    )
+    release_doctor_parser.add_argument("--target", required=True)
+    release_doctor_parser.add_argument("--stable", default="origin/stable")
     backup_parser = subparsers.add_parser("backup", help="Create or verify a runtime backup")
     backup_parser.add_argument("--mirror-home", dest="mirror_home")
     backup_parser.add_argument("--verify", dest="verify")
@@ -2029,6 +2213,11 @@ def cmd_runtime(argv: list[str]) -> int:
     if args.command == "release-notes":
         sys.stdout.write(render_release_note(read_release_note(args.version)))
         return 0
+
+    if args.command == "release-doctor":
+        release_report = build_release_doctor_report(target=args.target, stable_ref=args.stable)
+        sys.stdout.write(render_release_doctor(release_report))
+        return 1 if release_report.has_failures else 0
 
     if args.command == "backup":
         if args.verify:

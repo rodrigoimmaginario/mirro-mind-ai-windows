@@ -10,6 +10,12 @@ Future release notes should use the structure defined in [Release Notes](../proc
 
 ---
 
+## Releases
+
+- [v0.8.0 — Stable Self-Update Foundation](v0.8.0.md) — first prospective stable-channel release; establishes safe runtime self-update, updater self-recovery, stable/main channels, welcome version visibility, and runtime release-note access.
+
+---
+
 ## Historical Boundary
 
 - Pre-adoption versions: `v0.2.0` through `v0.7.0`, recorded by Git tags and worklog entries.

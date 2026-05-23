@@ -319,10 +319,19 @@ def _extract_highlights(text: str) -> tuple[str, ...]:
     next_heading = re.search(r"^## ", tail, flags=re.MULTILINE)
     section = tail[: next_heading.start()] if next_heading else tail
     highlights: list[str] = []
+    current: list[str] = []
     for line in section.splitlines():
         stripped = line.strip()
+        if not stripped:
+            continue
         if stripped.startswith("- "):
-            highlights.append(stripped[2:].strip())
+            if current:
+                highlights.append(" ".join(current))
+            current = [stripped[2:].strip()]
+        elif current:
+            current.append(stripped)
+    if current:
+        highlights.append(" ".join(current))
     return tuple(highlights)
 
 

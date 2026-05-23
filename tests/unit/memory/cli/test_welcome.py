@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from memory import MemoryClient
-from memory.cli.runtime import GitStatus, GitUpdatePlan
+from memory.cli.runtime import GitStatus, GitUpdatePlan, UpdateChannel
 from memory.config import default_db_path_for_home
 
 JOURNEY_ACTIVE = """# Sample journey
@@ -72,6 +72,9 @@ def test_welcome_empty_when_mirror_welcome_off(monkeypatch, tmp_path, capsys):
 def test_welcome_has_version_stats_and_blank_before_invitation(monkeypatch, tmp_path, capsys):
     _mem(tmp_path, user="alisson-vale")
     monkeypatch.setattr("memory.cli.welcome.package_version", lambda: "0.7.0")
+    monkeypatch.setattr(
+        "memory.cli.welcome.inspect_update_channel", lambda start: UpdateChannel("stable", None)
+    )
     monkeypatch.setattr(
         "memory.cli.welcome.inspect_git",
         lambda start: GitStatus(None, None, None, None, "not a git repository"),
@@ -285,6 +288,9 @@ def test_welcome_renders_update_available_from_local_refs(monkeypatch, tmp_path,
     _mem(tmp_path, user="alisson-vale")
     monkeypatch.setattr("memory.cli.welcome.package_version", lambda: "0.7.0")
     monkeypatch.setattr(
+        "memory.cli.welcome.inspect_update_channel", lambda start: UpdateChannel("stable", None)
+    )
+    monkeypatch.setattr(
         "memory.cli.welcome.inspect_git",
         lambda start: GitStatus(tmp_path, "main", "abc1234", False),
     )
@@ -306,6 +312,9 @@ def test_welcome_renders_update_available_from_local_refs(monkeypatch, tmp_path,
 def test_welcome_does_not_render_update_line_when_refs_are_current(monkeypatch, tmp_path, capsys):
     _mem(tmp_path, user="alisson-vale")
     monkeypatch.setattr("memory.cli.welcome.package_version", lambda: "0.7.0")
+    monkeypatch.setattr(
+        "memory.cli.welcome.inspect_update_channel", lambda start: UpdateChannel("stable", None)
+    )
     monkeypatch.setattr(
         "memory.cli.welcome.inspect_git",
         lambda start: GitStatus(tmp_path, "main", "abc1234", False),

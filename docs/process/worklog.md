@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-22 — v0.8.0 release candidate prepared
+
+Prepared the first prospective stable-channel release candidate: `v0.8.0 — Stable Self-Update Foundation`. Bumped `pyproject.toml` to `0.8.0`, created `docs/releases/v0.8.0.md`, and added the release to `docs/releases/index.md`.
+
+This release candidate packages the self-update foundation: runtime health, diagnosis, backup, dry-run, update check, safe update execution, updater self-recovery, stable/main channels, welcome version visibility, and runtime release-note access.
+
 ### 2026-05-22 — Self-Update Done track opened
 
 Reframed CV9.E3 Distribution & Tooling around the Self-Update Done track. Completed self-update mechanism work now leads into the remaining release-management stories: first stable release publication, release-aware update notices, release-note skill parity, promotion preflight/doctor, stable promotion execution path, and fresh-user stable update smoke.

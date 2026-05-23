@@ -15,7 +15,181 @@ but no fix yet are also welcome (mark them `Status: mitigated`).
 
 ## Contents
 
+- [Runtime update channel `stable` is not fetched or unavailable](#runtime-update-channel-stable-is-not-fetched-or-unavailable)
+- [Changing `.mirror-update-channel` makes the git tree dirty](#changing-mirror-update-channel-makes-the-git-tree-dirty)
+- [Welcome shows channel `main` when you expected `stable`](#welcome-shows-channel-main-when-you-expected-stable)
+- [`runtime release-notes latest` says release notes were not found](#runtime-release-notes-latest-says-release-notes-were-not-found)
 - [Pi logger fails silently when `python3` resolves outside the project venv](#pi-logger-fails-silently-when-python3-resolves-outside-the-project-venv)
+
+---
+
+## Runtime update channel `stable` is not fetched or unavailable
+
+**Date:** 2026-05-22
+**Status:** mitigated
+**Affected component:** `python -m memory runtime update --check|--dry-run|update`
+**Severity:** update blocked, no mutation
+
+### Symptom
+
+Runtime update planning or checking reports that the stable channel cannot be
+resolved, for example:
+
+```text
+update channel stable is not fetched
+```
+
+or:
+
+```text
+Upstream: origin/stable @ unknown
+Availability: unknown
+```
+
+### Root cause
+
+The local clone is configured to follow the `stable` update channel, but the
+local git checkout has not fetched `origin/stable`, or the remote stable branch
+does not exist yet.
+
+### Fix
+
+Fetch the stable branch and retry the check:
+
+```bash
+git fetch origin stable
+uv run python -m memory runtime update --check
+```
+
+If the project has not created `origin/stable` yet, switch temporarily to the
+integration/dogfooding channel only if you intentionally accept mainline updates:
+
+```bash
+printf 'main\n' > .mirror-update-channel
+uv run python -m memory runtime update --check
+```
+
+### Prevention
+
+User-facing clones default to `stable`. Projects should create and maintain the
+remote `stable` branch before recommending self-update to users.
+
+---
+
+## Changing `.mirror-update-channel` makes the git tree dirty
+
+**Date:** 2026-05-22
+**Status:** resolved in current versions
+**Affected component:** `python -m memory runtime update`
+**Severity:** update blocked, no mutation
+
+### Symptom
+
+After writing `.mirror-update-channel`, runtime update refuses to proceed:
+
+```text
+[✗] status gate: runtime status is not ready
+Recovery:
+- Run: python -m memory runtime diagnose
+```
+
+Diagnosis reports a dirty git tree containing `.mirror-update-channel`.
+
+### Root cause
+
+Older Mirror Mind versions did not ignore `.mirror-update-channel`. Writing the
+local marker made the repository dirty, and the updater correctly refused to run
+with local uncommitted changes.
+
+### Fix
+
+If the installed updater is old, remove the marker, update first, then recreate
+it:
+
+```bash
+rm -f .mirror-update-channel
+uv run python -m memory runtime update
+printf 'stable\n' > .mirror-update-channel
+uv run python -m memory runtime version
+```
+
+Current versions ignore `.mirror-update-channel` in git, so changing it should
+not dirty the repository.
+
+---
+
+## Welcome shows channel `main` when you expected `stable`
+
+**Date:** 2026-05-22
+**Status:** operational guidance
+**Affected component:** `python -m memory welcome`, `python -m memory runtime version`
+**Severity:** user confusion, no data risk
+
+### Symptom
+
+The welcome shows:
+
+```text
+Version 0.7.0 · channel main
+```
+
+but the clone should follow stable releases.
+
+### Fix
+
+Write the stable marker and verify it:
+
+```bash
+printf 'stable\n' > .mirror-update-channel
+uv run python -m memory runtime version
+uv run python -m memory runtime update --check
+```
+
+Expected output includes:
+
+```text
+Update channel: stable
+```
+
+### Note
+
+The local git branch may still be `main`. The update channel controls the update
+target (`origin/stable` or `origin/main`); it does not necessarily rename the
+local branch.
+
+---
+
+## `runtime release-notes latest` says release notes were not found
+
+**Date:** 2026-05-22
+**Status:** expected before first prospective release note
+**Affected component:** `python -m memory runtime release-notes`
+**Severity:** informational
+
+### Symptom
+
+```text
+Mirror runtime release notes
+
+Release notes: not found
+```
+
+### Root cause
+
+Runtime release notes are prospective from CV9.E5 onward. Historical versions
+through `v0.7.0` are recorded by Git tags and the worklog, but do not require
+retroactive narrative release notes.
+
+### Fix
+
+No fix is required before the first prospective release note exists under:
+
+```text
+docs/releases/vMAJOR.MINOR.PATCH.md
+```
+
+After the first post-adoption release is published, `runtime release-notes
+latest` should render that release note.
 
 ---
 

@@ -151,13 +151,46 @@ If the full status gate crashes before update planning, `runtime update` automat
 
 Each Mirror Mind clone declares its role through a `.mirror-clone-role` file at the repository root. Valid values are `production` and `dev`. The file is local to each clone and ignored by git. When the file is missing, unreadable, or contains an unknown value, the role defaults to `production`.
 
-Each clone also declares its update channel through `.mirror-update-channel`. Valid values are `stable` and `main`; missing, unreadable, or unknown values default to `stable`. `main` is the integration/dogfooding channel. `stable` is the user-facing release channel and should advance only through release promotion.
-
 - `runtime status` and `runtime version` report the current clone role.
 - `python -m memory build load <slug>` refuses to start Builder Mode in a clone marked `production` unless `--ignore-production-role` is passed.
-- Production clones receive code through `git pull` or, once self-update is bootstrapped, through `runtime update`.
+- Production clones receive code through `runtime update`, not by direct development edits.
 
 See [Runtime Repair Policy](docs/process/runtime-repair-policy.md) and [Decisions](docs/project/decisions.md#mirror-mind-clones-declare-a-role) for the boundary and rationale.
+
+### Update channel
+
+Each clone declares its update channel through `.mirror-update-channel`. Valid values are `stable` and `main`; missing, unreadable, or unknown values default to `stable`.
+
+- `stable` is the user-facing release channel.
+- `main` is the integration/dogfooding channel.
+- A push to `main` is not a release.
+- `stable` advances only through release promotion after versioning, release notes, CI, smoke validation, tagging, and fast-forward.
+
+Change a clone to stable releases:
+
+```bash
+printf 'stable\n' > .mirror-update-channel
+uv run python -m memory runtime version
+uv run python -m memory runtime update --check
+```
+
+Change a clone to dogfooding/main:
+
+```bash
+printf 'main\n' > .mirror-update-channel
+uv run python -m memory runtime version
+uv run python -m memory runtime update --check
+```
+
+Remove the marker to return to the safe default (`stable`):
+
+```bash
+rm .mirror-update-channel
+```
+
+The local git branch and the update channel are related but not identical. A checkout may report `Git branch: main` and `Update channel: stable`. In that state, `runtime update` still compares and fast-forwards against `origin/stable`; the channel controls the update target even if the local branch name remains `main`.
+
+For common channel problems, see [Troubleshooting](docs/process/troubleshooting.md#runtime-update-channel-stable-is-not-fetched-or-unavailable).
 
 To list the active personas for the current user:
 

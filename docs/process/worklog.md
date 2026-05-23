@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-22 — Stable channel operations documented
+
+Created `origin/stable` at the validated `6c58e9c` baseline and switched the production clone's update channel to `stable`. `runtime update --check` now reports `origin/stable @ 6c58e9c` and `Availability: up_to_date` in production.
+
+Expanded `REFERENCE.md` with practical channel commands: switch to stable, switch to main, remove the marker, and understand why `Git branch: main` may coexist with `Update channel: stable`. Added troubleshooting entries for missing/unfetched stable channels, older versions treating `.mirror-update-channel` as a dirty file, unexpected main channel display, and missing release notes before the first prospective release.
+
 ### 2026-05-22 — Stable/main release channels added
 
 Added local update channel support through `.mirror-update-channel`. Missing or invalid channels default to `stable`; `main` is the integration/dogfooding channel. Runtime status, version, update check, dry-run, update execution, updater repair, and welcome can now surface or use the configured channel.

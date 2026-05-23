@@ -33,6 +33,7 @@ over time.
 | [CV9.E3.S8](cv9-e3-s8-welcome-update-awareness/index.md) | Welcome Update Awareness | ✅ Done |
 | [CV9.E3.S9](cv9-e3-s9-updater-self-recovery/index.md) | Updater Self-Recovery | ✅ Done |
 | [CV9.E3.S10](cv9-e3-s10-stable-release-channel-management/index.md) | Stable Release Channel Management | ✅ Done |
+| [CV9.E3.S11](cv9-e3-s11-release-channel-operations-docs/index.md) | Release Channel Operations Docs | ✅ Done |
 
 ---
 
@@ -57,6 +58,8 @@ CV9.E3 is done:
 - Update channels distinguish integration (`main`) from user-facing releases
   (`stable`), and release notes are available through runtime surfaces and a
   Mirror skill.
+- Channel switching, branch/channel differences, stable bootstrap, and common
+  channel troubleshooting are documented.
 - `README`, `REFERENCE.md`, process docs, decisions, and roadmap entries reflect
   the onboarding and self-update flow accurately.
 

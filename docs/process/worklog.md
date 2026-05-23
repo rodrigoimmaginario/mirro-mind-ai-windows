@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-22 — Next release target defined: v0.9.0 Self-Update Done
+
+After publishing `v0.8.0 — Stable Self-Update Foundation`, defined the next release target as `v0.9.0 — Self-Update Done`. The intended scope is CV9.E3.S13–S17: release-aware update notices, release-note skill parity, release promotion preflight/doctor, controlled stable promotion path, and fresh-user stable update smoke.
+
+Updated the `mirror-mind` journey path in the memory database so a future session can resume directly at CV9.E3.S13.
+
 ### 2026-05-22 — v0.8.0 stable release published
 
 Published `v0.8.0 — Stable Self-Update Foundation` as the first prospective stable-channel release. Release commit `4bdff1b` was tagged as `v0.8.0` and `origin/stable` was fast-forwarded to the same commit. CI was green before tagging and promotion.

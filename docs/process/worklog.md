@@ -12,6 +12,14 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-23 — Welcome and status release awareness added
+
+Completed CV9.E3.S18. Welcome now has network-tolerant release awareness: it reads and writes `<mirror-home>/runtime/update-check.json`, may refresh stale or missing cache with a lightweight `git ls-remote` check, never fetches or mutates refs, and fails softly when the remote is unavailable. Remote welcome checks can be disabled with `MIRROR_WELCOME_REMOTE_UPDATE_CHECK=off`.
+
+Added `python -m memory welcome --status-line` for compact cache-only runtime status. Pi's `mirror-logger` status bar now uses this command, producing signals such as `◇ alisson-vale · ✓` or `◇ alisson-vale · ⬆ v0.9.0` while keeping detailed explanation in the welcome card.
+
+Validation: 121 targeted welcome/runtime tests passed; ruff, format check, story-scoped mypy, and `git diff --check` passed.
+
 ### 2026-05-23 — v0.9.0 stable release published and fresh-user update smoke passed
 
 Published `v0.9.0 — Self-Update Done` to the stable channel. `runtime release-promote --target v0.9.0 --push` pushed both `refs/tags/v0.9.0` and `refs/heads/stable` to commit `fac6da3`.

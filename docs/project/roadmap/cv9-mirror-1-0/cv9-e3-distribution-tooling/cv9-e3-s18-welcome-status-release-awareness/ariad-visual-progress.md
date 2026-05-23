@@ -56,9 +56,9 @@ State: planned
 ## Ariad Stage Ribbon
 
 ```text
-Ariad: ◉ Plan | ○ Implement | ○ Validate | ○ Review | ○ Coherence | ○ Commit
-Flow:   Backlog | ◉ Ready | Doing | Validate | Done
-Progress: ██░░░░░░ 22%
+Ariad: ✓ Plan | ✓ Implement | ✓ Validate | ✓ Review | ✓ Coherence | ◉ Commit
+Flow:   Backlog | Ready | Doing | Validate | ◉ Done
+Progress: ███████░ 88%
 ```
 
 ## Horizontal Flow Board

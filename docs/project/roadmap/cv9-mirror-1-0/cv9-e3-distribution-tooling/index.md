@@ -40,7 +40,7 @@ over time.
 | [CV9.E3.S15](cv9-e3-s15-release-promotion-doctor/index.md) | Release Promotion Checklist / Doctor | ✅ Done |
 | [CV9.E3.S16](cv9-e3-s16-stable-promotion-execution/index.md) | Stable Promotion Execution Path | ✅ Done |
 | [CV9.E3.S17](cv9-e3-s17-fresh-user-stable-update-smoke/index.md) | Fresh User Stable Update Smoke | ✅ Done |
-| [CV9.E3.S18](cv9-e3-s18-welcome-status-release-awareness/index.md) | Welcome and Status Bar Release Awareness | 🟡 Planned |
+| [CV9.E3.S18](cv9-e3-s18-welcome-status-release-awareness/index.md) | Welcome and Status Bar Release Awareness | ✅ Done |
 
 ---
 

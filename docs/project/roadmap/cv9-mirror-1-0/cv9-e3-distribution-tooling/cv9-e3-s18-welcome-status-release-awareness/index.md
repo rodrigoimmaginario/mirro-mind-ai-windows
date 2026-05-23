@@ -3,7 +3,7 @@
 # CV9.E3.S18 — Welcome and Status Bar Release Awareness
 
 **Epic:** CV9.E3 Distribution & Tooling  
-**Status:** 🟡 Planned  
+**Status:** ✅ Done
 **User-visible outcome:** When a new stable release exists, the user sees a discreet operational signal when opening Mirror, can ask what changed, and can ask Mirror to update safely.
 
 ---
@@ -88,6 +88,32 @@ Explicit user checks should explain failures more clearly.
 - Pi status bar can show one compact health/update indicator plus active user, reading cache only.
 - Green/healthy state stays quiet; non-green states include a useful next action.
 - Existing `runtime update --check`, `runtime update --dry-run`, and `runtime update` remain compatible.
+
+## Result
+
+Welcome and Pi status bar release awareness are implemented.
+
+What changed:
+
+- `python -m memory welcome` now keeps an update-awareness cache at `<mirror-home>/runtime/update-check.json`.
+- Welcome can refresh the cache through a lightweight `git ls-remote`-based stable check when the cache is missing or older than 6 hours.
+- Remote welcome checks can be disabled with `MIRROR_WELCOME_REMOTE_UPDATE_CHECK=off`.
+- Remote check failures are silent and never block welcome rendering.
+- Matching remote tags can infer the release version; local release notes provide the title when available.
+- `python -m memory welcome --status-line` renders a compact cache-only status bar signal such as `◇ alisson-vale · ✓` or `◇ alisson-vale · ⬆ v0.9.0`.
+- Pi's `mirror-logger` extension now uses the status-line command for its status bar text.
+
+Validation:
+
+```bash
+PYTHONPATH=src uv run pytest tests/unit/memory/cli/test_welcome.py tests/unit/memory/cli/test_runtime.py -q
+uv run --extra dev ruff check src/ tests/
+uv run --extra dev ruff format --check src/ tests/
+uv run --extra dev mypy src/memory/cli/welcome.py src/memory/cli/runtime.py
+git diff --check
+```
+
+Result: 121 targeted welcome/runtime tests passed; ruff, format, story-scoped mypy, and whitespace checks passed.
 
 ## See also
 

@@ -196,10 +196,7 @@ def _identity_card(row: Identity) -> SurfaceCard:
 
 
 def _ego_card(rows: list[Identity]) -> SurfaceCard:
-    variants = tuple(
-        {"key": row.key, "label": row.key.replace("-", " ").replace("_", " ").title()}
-        for row in rows
-    )
+    variants = tuple({"key": row.key, "label": _ego_variant_label(row.key)} for row in rows)
     primary = next((row for row in rows if row.key == "identity"), rows[0])
     return SurfaceCard(
         id="ego",
@@ -234,6 +231,12 @@ def _shadow_placeholder_card() -> SurfaceCard:
             "chips": ("Patterns", "Avoidance", "Contradictions"),
         },
     )
+
+
+def _ego_variant_label(key: str) -> str:
+    if key == "identity":
+        return "Self-image"
+    return key.replace("-", " ").replace("_", " ").title()
 
 
 def _persona_card(row: Identity) -> SurfaceCard:

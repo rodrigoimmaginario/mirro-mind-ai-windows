@@ -50,7 +50,7 @@ async function showView(view, { updateHash = true } = {}) {
   docsPanel.hidden = !docsActive;
   contentGrid.classList.toggle('docs-active', docsActive);
   tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.view === view));
-  activePerspective.textContent = view === 'docs' ? 'Docs' : `Perspective · ${capitalize(view)}`;
+  activePerspective.textContent = view === 'docs' ? 'Docs' : `Perspective · ${perspectiveLabel(view)}`;
 
   if (updateHash) {
     window.history.replaceState({ view }, '', `#${view}`);
@@ -62,7 +62,7 @@ async function showView(view, { updateHash = true } = {}) {
   }
 
   const surface = await fetchJson(`/api/surface/${view}`);
-  currentPath.textContent = view === 'atlas' ? 'Atlas' : 'Workspace';
+  currentPath.textContent = view === 'atlas' ? 'Identity' : 'Workspace';
   content.innerHTML = view === 'atlas' ? renderAtlas(surface) : renderWorkspace(surface);
   window.scrollTo({ top: 0 });
 }
@@ -71,11 +71,11 @@ function renderAtlas(surface) {
   const regions = (surface.regions || []).map(renderAtlasRegion).join('');
   return `
     <section class="surface-intro atlas-hero">
-      <p class="eyebrow">Atlas</p>
+      <p class="eyebrow">Identity Map</p>
       <h2>How your Mirror reflects you today</h2>
-      <p>${escapeHtml(surface.synthesis || 'Atlas is ready for Mirror visibility.')}</p>
+      <p>${escapeHtml(surface.synthesis || 'Identity map is ready for Mirror visibility.')}</p>
     </section>
-    <div class="atlas-map" aria-label="Atlas psyche map">${regions}</div>
+    <div class="atlas-map" aria-label="Identity map">${regions}</div>
   `;
 }
 
@@ -341,7 +341,8 @@ async function fetchJson(url, options = {}) {
   return payload;
 }
 
-function capitalize(value) {
+function perspectiveLabel(value) {
+  if (value === 'atlas') return 'Identity';
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 

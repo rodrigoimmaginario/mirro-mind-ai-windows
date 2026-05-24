@@ -47,6 +47,36 @@ Consequences:
 - Roadmap work should be derived after iterating the documented metaphor,
   decisions, and wireframes.
 
+### Web visibility uses a Core Surface API, not direct web data access
+
+**Date:** 2026-05-24
+**Reference:** [Web Surface Specification](../product/specs/web-surface/index.md), [Mirror Web Perspectives](../product/envisioning/web-perspectives.md)
+
+The Mirror Mind web app should be a thin local interface over Mirror Core. Web
+routes must not execute SQL, inspect raw schema details, or compose identity,
+memory, journey, conversation, Atlas, or Workspace meaning inline.
+
+Mirror Core will expose a surface composition layer for web read models:
+
+```text
+web -> surfaces -> services -> storage -> db
+```
+
+Initial surfaces include Atlas home, Workspace home, object detail, evidence,
+and search. These surfaces return explicit typed DTOs shaped for the UI. Atlas
+and Workspace may have different information architecture and design rhythm, but
+they remain read models over the same domain objects.
+
+Consequences:
+
+- Web handlers stay small and transport-focused.
+- Domain retrieval remains in services and storage.
+- Surface composition owns UI-shaped read models and empty states.
+- Atlas and Workspace avoid duplicating data access logic.
+- Live LLM calls should not happen during page rendering; synthesis should come
+  from persisted data or be absent.
+- Tests should cover surface composition independently from the HTTP server.
+
 ### Release updates use stable/main channels
 
 **Date:** 2026-05-22

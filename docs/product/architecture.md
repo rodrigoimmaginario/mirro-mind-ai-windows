@@ -29,6 +29,7 @@ src/memory/                  — Python package: all business logic
   intelligence/              — LLM-powered extraction, search, routing
   services/                  — Domain services (the implementation layer)
   storage/                   — Persistence components (raw SQL lives here)
+  surfaces/                  — Web read-model composition for Atlas, Workspace, detail, evidence, and search
   skills/                    — Shared skill logic callable by any harness
 templates/identity/          — Generic bootstrap templates shipped in the repo
 examples/extensions/         — Reference extensions (e.g. review-copy)
@@ -74,6 +75,16 @@ db (SQLite)
 
 Reversing this direction — e.g. a service importing from CLI, or storage
 importing from services — is a design violation. When in doubt, push logic down.
+
+The web visibility surface adds a read-model layer above services:
+
+```text
+web -> surfaces -> services -> storage -> db
+```
+
+`web` routes must not execute SQL or compose domain meaning. They consume typed
+surface DTOs produced by `src/memory/surfaces/`. See the [Web Surface
+Specification](specs/web-surface/index.md).
 
 The single documented exception: `RuntimeSessionService` still owns some
 transaction-boundary SQL pending a separate architecture decision.

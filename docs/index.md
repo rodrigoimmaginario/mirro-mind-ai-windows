@@ -74,7 +74,7 @@ Product docs explain what Mirror Mind is and how it should behave.
 - [Principles](product/principles.md) — product behavior principles
 - [Python API](product/api.md) — programmatic interface for developers integrating with Mirror Core
 - [Envisioning](product/envisioning/index.md) — UoC model, lenses, Maestro framing, web perspectives, and coherence as product architecture
-- [Specs](product/specs/index.md) — concrete product and runtime behavior specifications
+- [Specs](product/specs/index.md) — concrete product, web surface, and runtime behavior specifications
 - [Extensions](product/extensions/index.md) — user-owned, stateful extensions outside the core
 
 ---

@@ -107,6 +107,9 @@ Workspace content
 
 The common shell prevents the product from feeling like two unrelated apps. The
 perspective controls the rhythm of the surface, not the existence of the Mirror.
+Implementation should follow the [Web Surface Specification](../specs/web-surface/index.md):
+web routes render typed surface read models instead of querying internal data
+or composing meaning directly.
 
 ## Atlas perspective
 
@@ -338,6 +341,10 @@ Workspace
   more counts and operational state
   clearer neutral surfaces with pragmatic accents
 ```
+
+The technical counterpart to this design unity is the surface layer: Atlas and
+Workspace are separate read models over the same Mirror Core, not separate data
+models. The web layer consumes those read models through the Web Surface API.
 
 The design principle is:
 

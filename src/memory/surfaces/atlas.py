@@ -103,7 +103,7 @@ class AtlasSurface:
                 href=f"/objects/memory/{memory.id}",
                 status=memory.layer,
                 accent=memory.memory_type,
-                metadata={"icon": "M", "group": "Memories"},
+                metadata={"icon": "◫", "icon_kind": "glyph", "group": "Memories"},
             )
             for memory in memories
         )
@@ -115,7 +115,7 @@ class AtlasSurface:
                 description="A field of work or becoming remembered by the Mirror.",
                 href=f"/objects/journey/{journey['id']}",
                 status="journey",
-                metadata={"icon": "J", "group": "Journeys"},
+                metadata={"icon": "✦", "icon_kind": "glyph", "group": "Journeys"},
             )
             for journey in self.journeys.list_active_journeys()
         )
@@ -188,6 +188,7 @@ def _identity_card(row: Identity) -> SurfaceCard:
             "layer": row.layer,
             "key": row.key,
             "icon": _icon_for_identity(row),
+            "icon_kind": "glyph",
             "display_label": _display_label_for_identity(row, title),
         },
     )
@@ -206,7 +207,13 @@ def _ego_card(rows: list[Identity]) -> SurfaceCard:
         description="The Mirror's speaking voice, behavioral stance, and operating constraints.",
         href=f"/objects/identity/{identity_object_id(primary.layer, primary.key)}",
         status="ego",
-        metadata={"layer": "ego", "icon": "E", "display_label": "", "variants": variants},
+        metadata={
+            "layer": "ego",
+            "icon": "◉",
+            "icon_kind": "glyph",
+            "display_label": "",
+            "variants": variants,
+        },
     )
 
 
@@ -222,6 +229,7 @@ def _persona_card(row: Identity) -> SurfaceCard:
             "layer": row.layer,
             "key": row.key,
             "icon": _initials(_title_for_identity(row)),
+            "icon_kind": "initials",
             "display_label": _title_for_identity(row),
         },
     )
@@ -269,10 +277,10 @@ def _identity_description(row: Identity) -> str:
 
 def _icon_for_identity(row: Identity) -> str:
     if row.layer == "shadow":
-        return "S"
+        return "◐"
     if row.layer == "journey":
-        return "J"
-    return _initials(_title_for_identity(row))
+        return "✦"
+    return "◇"
 
 
 def _initials(value: str) -> str:

@@ -386,12 +386,23 @@ input {
   height: 42px;
   flex: 0 0 auto;
   place-items: center;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.card-icon.glyph {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.card-icon.initials {
   border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
   font-size: 13px;
-  font-weight: 800;
   letter-spacing: 0.04em;
 }
 

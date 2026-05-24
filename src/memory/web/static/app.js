@@ -126,6 +126,7 @@ function renderWorkspaceSection(section) {
 
 function renderCard(card) {
   const icon = card.metadata?.icon || card.title?.slice(0, 1) || '?';
+  const iconKind = card.metadata?.icon_kind || 'glyph';
   const label = card.metadata?.display_label ?? card.title;
   const variants = (card.metadata?.variants || [])
     .map((variant) => `<span>${escapeHtml(variant.label || variant.key)}</span>`)
@@ -133,7 +134,7 @@ function renderCard(card) {
   return `
     <article class="surface-card">
       <div class="card-head">
-        <div class="card-icon" aria-label="${escapeHtml(card.title)}">${escapeHtml(icon)}</div>
+        <div class="card-icon ${escapeHtml(iconKind)}" aria-label="${escapeHtml(card.title)}">${escapeHtml(icon)}</div>
         <div>
           <div class="card-meta">${escapeHtml(card.kind)}${card.status ? ` · ${escapeHtml(card.status)}` : ''}</div>
           ${label ? `<h4>${escapeHtml(label)}</h4>` : ''}

@@ -186,6 +186,10 @@ input {
 .content-grid {
   min-width: 0;
   display: grid;
+  grid-template-columns: 1fr;
+}
+
+.content-grid.docs-active {
   grid-template-columns: 320px 1fr;
 }
 

@@ -6,6 +6,7 @@ const activePerspective = document.querySelector('#active-perspective');
 const chooser = document.querySelector('#chooser');
 const warning = document.querySelector('#warning');
 const docsPanel = document.querySelector('#docs-panel');
+const contentGrid = document.querySelector('.content-grid');
 const tabs = [...document.querySelectorAll('[data-view]')];
 let currentDocPath = null;
 let docsLoaded = false;
@@ -45,7 +46,9 @@ async function chooseDefault(perspective) {
 
 async function showView(view, { updateHash = true } = {}) {
   activeView = view;
-  docsPanel.hidden = view !== 'docs';
+  const docsActive = view === 'docs';
+  docsPanel.hidden = !docsActive;
+  contentGrid.classList.toggle('docs-active', docsActive);
   tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.view === view));
   activePerspective.textContent = view === 'docs' ? 'Docs' : `Perspective · ${capitalize(view)}`;
 

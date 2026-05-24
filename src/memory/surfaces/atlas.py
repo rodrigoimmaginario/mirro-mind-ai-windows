@@ -57,8 +57,8 @@ class AtlasSurface:
         cards = (_ego_card(rows),) if rows else ()
         return AtlasRegion(
             id="ego",
-            title="Ego / Voice",
-            description="The active operational voice through which the Mirror speaks.",
+            title="Ego",
+            description="How you operate in the world.",
             cards=cards,
             empty_state=None if cards else "No ego layers are available yet.",
             metadata=_region_metadata("ego", cards),
@@ -200,8 +200,8 @@ def _ego_card(rows: list[Identity]) -> SurfaceCard:
     return SurfaceCard(
         id="ego",
         kind="identity",
-        title="Ego",
-        description="The Mirror's speaking voice, behavioral stance, and operating constraints.",
+        title="Expression",
+        description="How you operate in the world.",
         href=f"/objects/identity/{identity_object_id(primary.layer, primary.key)}",
         status="ego",
         metadata={

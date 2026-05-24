@@ -43,10 +43,10 @@ def test_atlas_home_surfaces_real_identity_and_personas(
     assert ego_region.empty_state is None
     assert ego_region.cards[0].id == "ego"
     assert ego_region.cards[0].kind == "identity"
-    assert ego_region.cards[0].title == "Ego"
-    assert ego_region.cards[0].description == (
-        "The Mirror's speaking voice, behavioral stance, and operating constraints."
-    )
+    assert ego_region.title == "Ego"
+    assert ego_region.description == "How you operate in the world."
+    assert ego_region.cards[0].title == "Expression"
+    assert ego_region.cards[0].description == "How you operate in the world."
     assert ego_region.cards[0].metadata["variants"] == ({"key": "identity", "label": "Identity"},)
     assert ego_region.metadata == {"atlas_role": "ego", "data_readiness": "real"}
     assert personas_region.empty_state is None

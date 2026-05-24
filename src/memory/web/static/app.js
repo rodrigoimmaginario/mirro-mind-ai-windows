@@ -97,6 +97,9 @@ function renderAtlasRegion(region) {
   if (['self', 'ego', 'shadow'].includes(role)) {
     return renderConceptRegion(region, role);
   }
+  if (role === 'personas') {
+    return renderPersonaRegion(region);
+  }
 
   const readiness = region.metadata?.data_readiness || 'unknown';
   const cards = (region.cards || []).slice(0, 6).map(renderCard).join('');
@@ -108,6 +111,30 @@ function renderAtlasRegion(region) {
       </div>
       ${cards ? `<div class="card-grid atlas-cards">${cards}</div>` : `<p class="empty-state">${escapeHtml(region.empty_state || 'Nothing to show yet.')}</p>`}
     </section>
+  `;
+}
+
+function renderPersonaRegion(region) {
+  const people = (region.cards || []).map(renderPersonaToken).join('');
+  return `
+    <section class="atlas-region atlas-personas persona-team">
+      <div class="team-copy">
+        <h3>${escapeHtml(region.title)}</h3>
+        <p>${escapeHtml(region.description)}</p>
+      </div>
+      ${people ? `<div class="persona-orbit" aria-label="Persona team">${people}</div>` : `<p class="empty-state">${escapeHtml(region.empty_state || 'No personas are available yet.')}</p>`}
+    </section>
+  `;
+}
+
+function renderPersonaToken(card) {
+  const initials = card.metadata?.icon || card.title.slice(0, 2).toUpperCase();
+  const label = card.metadata?.display_label || card.title;
+  return `
+    <button type="button" class="persona-token" title="${escapeHtml(card.title)}">
+      <span class="persona-avatar">${escapeHtml(initials)}</span>
+      <span>${escapeHtml(label)}</span>
+    </button>
   `;
 }
 

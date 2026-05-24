@@ -240,19 +240,19 @@ def _ego_variant_label(key: str) -> str:
 
 
 def _persona_card(row: Identity) -> SurfaceCard:
+    label = _humanize_key(row.key)
     return SurfaceCard(
         id=row.key,
         kind="persona",
-        title=_title_for_identity(row),
+        title=label,
         description="A specialized lens the Mirror can activate when this context is present.",
         href=f"/objects/persona/{row.key}",
         status="persona",
         metadata={
-            "layer": row.layer,
             "key": row.key,
-            "icon": _initials(_title_for_identity(row)),
+            "icon": _initials(label),
             "icon_kind": "initials",
-            "display_label": _title_for_identity(row),
+            "display_label": label,
         },
     )
 
@@ -267,6 +267,10 @@ def _region_metadata(
     return {"atlas_role": role, "data_readiness": readiness}
 
 
+def _humanize_key(key: str) -> str:
+    return key.replace("-", " ").replace("_", " ").title()
+
+
 def _title_for_identity(row: Identity) -> str:
     first_heading = next(
         (
@@ -279,7 +283,7 @@ def _title_for_identity(row: Identity) -> str:
     if first_heading:
         return first_heading
     if row.layer == "persona":
-        return row.key.replace("-", " ").replace("_", " ").title()
+        return _humanize_key(row.key)
     return f"{row.layer}/{row.key}"
 
 

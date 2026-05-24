@@ -331,6 +331,65 @@ input {
   min-height: 230px;
 }
 
+.persona-team {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.28fr) 1fr;
+  gap: 20px;
+  align-items: center;
+  overflow: hidden;
+}
+
+.persona-orbit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 18px;
+  padding: 12px;
+}
+
+.persona-token {
+  display: grid;
+  width: auto;
+  min-width: 92px;
+  justify-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  font-size: 13px;
+}
+
+.persona-token:hover {
+  color: var(--text);
+}
+
+.persona-avatar {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 42%),
+    var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.persona-token:nth-child(3n + 2) .persona-avatar {
+  transform: translateY(8px);
+}
+
+.persona-token:nth-child(4n) .persona-avatar {
+  transform: translateY(-6px);
+}
+
 .atlas-memories {
   grid-area: memories;
   min-height: 320px;
@@ -558,6 +617,14 @@ summary:hover {
       "shadow"
       "personas"
       "memories";
+  }
+
+  .persona-team {
+    grid-template-columns: 1fr;
+  }
+
+  .persona-orbit {
+    justify-content: flex-start;
   }
 
   .docs-panel {

@@ -14,6 +14,9 @@ Current explorations:
 
 - [Mirror Web Perspectives](web-perspectives.md) captures the Atlas and
   Workspace perspective model for the Mirror Mind 1.0 web visibility surface.
+- [Agentic Web Console](agentic-web-console.md) explores a future browser-based
+  operations surface where a headless agent proposes or performs controlled
+  Mirror updates with approval and auditability.
 
 ## Coherence as Product Architecture
 

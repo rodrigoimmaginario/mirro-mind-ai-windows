@@ -12,6 +12,14 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-24 — Agentic web console idea captured
+
+During CV9.E6 web visibility work, captured a future product direction: a browser-based agentic console where users express Mirror update intent in natural language, a headless agent proposes or performs controlled operations, and the browser shows the run timeline, approvals, and evidence.
+
+Created `docs/product/envisioning/agentic-web-console.md` and added the idea to the roadmap radar. This is explicitly outside the current read-only web visibility scope. It should graduate only after the basic visibility foundation is useful and stable.
+
+No runtime behavior changed.
+
 ### 2026-05-24 — Identity Map page validated
 
 Completed CV9.E6.S3, renamed from Atlas Identity and Persona Map to **Identity Map Page** after product review clarified that the whole map is an identity surface. The public UI now labels the perspective as Identity while the internal `atlas` route remains stable.

@@ -132,6 +132,30 @@ Add new items at the top. Each entry should name the problem (not just the
 solution), point at evidence or source, and sketch the rough shape of the
 work.
 
+### Agentic web console for controlled Mirror operations
+
+**Source:** CV9.E6 web visibility exploration and Navigator product discussion
+**Surfaced:** 2026-05-24
+
+After the read-only web visibility surface is useful, Mirror could grow a local
+agentic web console where users ask for updates in natural language and watch a
+headless agent run in the browser. The strategic goal is to avoid building CRUD
+forms for every Mirror mutation: identity, personas, journeys, memory
+consolidation, and shadow cultivation are semantic operations better handled
+through proposals, approval, controlled service calls, and audit trails.
+
+This should not be folded into CV9.E6. It likely needs its own future CV because
+it changes the web surface from read-only visibility into controlled agentic
+operation. See [Agentic Web Console](../../product/envisioning/agentic-web-console.md).
+
+Possible first slices:
+
+- Headless agent run spike with no writes.
+- Browser event timeline for a read-only agent explanation run.
+- Proposal-only flow for identity/persona updates.
+- Approval-gated writes through Mirror Core services, not raw SQL.
+- Audit trail connecting requested intent, run events, before/after state, and evidence.
+
 ### Mirror self-update and runtime health
 
 **Source:** `mirror-self-update` journey, Ariad coherent update policy, Maestro onboarding/update work  

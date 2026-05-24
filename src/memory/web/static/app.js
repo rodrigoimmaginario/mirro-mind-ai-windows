@@ -246,7 +246,13 @@ document.querySelectorAll('[data-choose]').forEach((button) => {
 });
 
 tabs.forEach((tab) => {
-  tab.addEventListener('click', () => showView(tab.dataset.view));
+  tab.addEventListener('click', () => {
+    if (tab.dataset.view === 'docs') {
+      showView('docs');
+      return;
+    }
+    chooseDefault(tab.dataset.view);
+  });
 });
 
 function isExternalLink(href) {

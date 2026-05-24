@@ -68,7 +68,7 @@ Consequences:
 
 Mirror Mind adopts Ariad's documentation pattern for the 1.0 docs home: a short narrative opening, explicit "start here" paths, and the Process / Project / Product triad as the organizing spine. A practical Reference layer is allowed for command, operations, and developer lookup material.
 
-The web docs browser should open on `docs/index.md`, titled "Mirror Mind Documentation", rather than the first alphabetic document. The docs home is the front door.
+The web docs browser should open on `docs/index.md`, titled "Mirror Mind Documentation", rather than the first alphabetic document. The docs home is the front door and appears as "Home" in the navigation menu.
 
 The project will not move files before 1.0 solely for symmetry, but product-owned surfaces may move when navigation pressure makes the current location confusing. The following locations remain stable for now:
 

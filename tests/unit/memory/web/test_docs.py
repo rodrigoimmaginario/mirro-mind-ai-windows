@@ -78,7 +78,7 @@ def test_tree_puts_docs_home_first(tmp_path: Path) -> None:
 
     nodes = browser.tree()
 
-    assert nodes[0].title == "Docs Index"
+    assert nodes[0].title == "Home"
     assert nodes[0].path == "docs/index.md"
 
 

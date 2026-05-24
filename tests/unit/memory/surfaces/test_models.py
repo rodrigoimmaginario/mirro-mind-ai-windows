@@ -39,9 +39,11 @@ def test_surface_dtos_serialize_nested_tuples() -> None:
                         "count": None,
                         "status": None,
                         "accent": None,
+                        "metadata": None,
                     }
                 ],
                 "empty_state": None,
+                "metadata": None,
             }
         ],
     }

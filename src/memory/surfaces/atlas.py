@@ -46,10 +46,11 @@ class AtlasSurface:
         cards = tuple(_identity_card(row) for row in rows)
         return AtlasRegion(
             id="identity",
-            title="Identity",
+            title="Self / Identity",
             description="Structural layers that shape how the Mirror responds.",
             cards=cards,
             empty_state=None if cards else "No identity layers are available yet.",
+            metadata=_region_metadata("north", cards),
         )
 
     def _personas_region(self) -> AtlasRegion:
@@ -61,6 +62,7 @@ class AtlasSurface:
             description="Specialized lenses that activate by context.",
             cards=cards,
             empty_state=None if cards else "No personas are available yet.",
+            metadata=_region_metadata("west", cards),
         )
 
     def _shadow_region(self) -> AtlasRegion:
@@ -72,6 +74,7 @@ class AtlasSurface:
             description="Tensions, avoidances, contradictions, and integration candidates.",
             cards=cards,
             empty_state=None if cards else "No structural shadow observations are available yet.",
+            metadata=_region_metadata("south-west", cards),
         )
 
     def _memories_region(self) -> AtlasRegion:
@@ -94,6 +97,7 @@ class AtlasSurface:
             description="Retained meaning, facts, patterns, and evidence.",
             cards=cards,
             empty_state=None if cards else "No memories are available yet.",
+            metadata=_region_metadata("south", cards, partial=True),
         )
 
     def _journeys_region(self) -> AtlasRegion:
@@ -115,6 +119,7 @@ class AtlasSurface:
             description="Fields of becoming and work.",
             cards=cards,
             empty_state=None if cards else "No active journeys are available yet.",
+            metadata=_region_metadata("east", cards, partial=True),
         )
 
     def _conversations_region(self) -> AtlasRegion:
@@ -136,6 +141,7 @@ class AtlasSurface:
             description="The raw trail from which memory, decisions, and patterns emerge.",
             cards=cards,
             empty_state=None if cards else "No conversations are available yet.",
+            metadata=_region_metadata("south-east", cards, partial=True),
         )
 
 
@@ -144,10 +150,11 @@ def _identity_card(row: Identity) -> SurfaceCard:
     return SurfaceCard(
         id=object_id,
         kind="identity",
-        title=f"{row.layer}/{row.key}",
+        title=_title_for_identity(row),
         description=_preview(row.content),
         href=f"/objects/identity/{object_id}",
         status=row.layer,
+        metadata={"layer": row.layer, "key": row.key},
     )
 
 
@@ -155,11 +162,38 @@ def _persona_card(row: Identity) -> SurfaceCard:
     return SurfaceCard(
         id=row.key,
         kind="persona",
-        title=row.key,
+        title=_title_for_identity(row),
         description=_preview(row.content),
         href=f"/objects/persona/{row.key}",
         status="persona",
+        metadata={"layer": row.layer, "key": row.key},
     )
+
+
+def _region_metadata(
+    role: str, cards: tuple[SurfaceCard, ...], *, partial: bool = False
+) -> dict[str, str]:
+    if cards:
+        readiness = "partial" if partial else "real"
+    else:
+        readiness = "empty"
+    return {"atlas_role": role, "data_readiness": readiness}
+
+
+def _title_for_identity(row: Identity) -> str:
+    first_heading = next(
+        (
+            line.removeprefix("#").strip()
+            for line in row.content.splitlines()
+            if line.startswith("#")
+        ),
+        "",
+    )
+    if first_heading:
+        return first_heading
+    if row.layer == "persona":
+        return row.key.replace("-", " ").replace("_", " ").title()
+    return f"{row.layer}/{row.key}"
 
 
 def _preview(content: str, *, limit: int = 140) -> str:

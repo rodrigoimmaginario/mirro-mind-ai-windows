@@ -2,7 +2,7 @@
 
 # CV9.E6.S3 — Atlas Identity and Persona Map
 
-**Status:** 🟡 Planned  
+**Status:** 🟢 Planned — Plan checkpoint ready
 **User-visible outcome:** Atlas opens as an editorial psyche map with real identity and persona regions.
 
 ## Scope
@@ -22,6 +22,11 @@ Implement the first Atlas vertical slice:
 - Unsupported or partial regions are visibly honest.
 - The Atlas surface is read-only.
 - The page can be manually validated against the personal Mirror.
+
+## Plan and Validation
+
+- [Plan](plan.md)
+- [Test Guide](test-guide.md)
 
 ## Notes
 

@@ -240,15 +240,110 @@ input {
   padding: 24px;
 }
 
-.region-grid,
+.atlas-map,
 .section-stack {
   display: grid;
   gap: 18px;
   margin-top: 18px;
 }
 
-.region-grid {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+.atlas-map {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    ". north ."
+    "west north east"
+    "south-west south south-east";
+  align-items: stretch;
+}
+
+.atlas-region {
+  position: relative;
+  min-height: 220px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
+    var(--panel);
+}
+
+.atlas-region::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  z-index: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-radius: 18px;
+  pointer-events: none;
+}
+
+.atlas-region > * {
+  position: relative;
+  z-index: 1;
+}
+
+.atlas-north {
+  grid-area: north;
+  min-height: 280px;
+  background:
+    radial-gradient(circle at 50% 15%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 46%),
+    var(--panel);
+}
+
+.atlas-west {
+  grid-area: west;
+}
+
+.atlas-east {
+  grid-area: east;
+}
+
+.atlas-south-west {
+  grid-area: south-west;
+}
+
+.atlas-south {
+  grid-area: south;
+}
+
+.atlas-south-east {
+  grid-area: south-east;
+}
+
+.region-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.readiness-badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.readiness-real .readiness-badge {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.readiness-empty,
+.readiness-partial {
+  background:
+    repeating-linear-gradient(
+      -35deg,
+      color-mix(in srgb, var(--panel-strong) 42%, transparent),
+      color-mix(in srgb, var(--panel-strong) 42%, transparent) 8px,
+      transparent 8px,
+      transparent 18px
+    ),
+    var(--panel);
 }
 
 .section-stack {
@@ -379,6 +474,17 @@ summary:hover {
 
   .content-grid {
     display: grid;
+  }
+
+  .atlas-map {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "north"
+      "west"
+      "east"
+      "south-west"
+      "south"
+      "south-east";
   }
 
   .docs-panel {

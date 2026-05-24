@@ -68,14 +68,14 @@ async function showView(view, { updateHash = true } = {}) {
 }
 
 function renderAtlas(surface) {
-  const regions = (surface.regions || []).map(renderRegion).join('');
+  const regions = (surface.regions || []).map(renderAtlasRegion).join('');
   return `
-    <section class="surface-intro">
+    <section class="surface-intro atlas-hero">
       <p class="eyebrow">Atlas</p>
-      <h2>Editorial psyche map</h2>
+      <h2>How your Mirror sees you today</h2>
       <p>${escapeHtml(surface.synthesis || 'Atlas is ready for Mirror visibility.')}</p>
     </section>
-    <div class="region-grid">${regions}</div>
+    <div class="atlas-map" aria-label="Atlas psyche map">${regions}</div>
   `;
 }
 
@@ -91,16 +91,21 @@ function renderWorkspace(surface) {
   `;
 }
 
-function renderRegion(region) {
-  const cards = (region.cards || []).map(renderCard).join('');
+function renderAtlasRegion(region) {
+  const role = region.metadata?.atlas_role || 'support';
+  const readiness = region.metadata?.data_readiness || 'unknown';
+  const cards = (region.cards || []).slice(0, 3).map(renderCard).join('');
   return `
-    <section class="surface-group">
+    <section class="atlas-region atlas-${escapeHtml(role)} readiness-${escapeHtml(readiness)}">
       <div>
-        <p class="eyebrow">${escapeHtml(region.id)}</p>
+        <div class="region-heading">
+          <p class="eyebrow">${escapeHtml(region.id)}</p>
+          <span class="readiness-badge">${escapeHtml(readiness)}</span>
+        </div>
         <h3>${escapeHtml(region.title)}</h3>
         <p>${escapeHtml(region.description)}</p>
       </div>
-      ${cards ? `<div class="card-grid">${cards}</div>` : `<p class="empty-state">${escapeHtml(region.empty_state || 'Nothing to show yet.')}</p>`}
+      ${cards ? `<div class="card-grid atlas-cards">${cards}</div>` : `<p class="empty-state">${escapeHtml(region.empty_state || 'Nothing to show yet.')}</p>`}
     </section>
   `;
 }

@@ -27,9 +27,13 @@ def test_atlas_home_surfaces_real_identity_and_personas(
     assert identity_region.empty_state is None
     assert identity_region.cards[0].id == "ego:identity"
     assert identity_region.cards[0].kind == "identity"
+    assert identity_region.cards[0].title == "Ego"
+    assert identity_region.metadata == {"atlas_role": "north", "data_readiness": "real"}
     assert personas_region.empty_state is None
     assert personas_region.cards[0].id == "engineer"
     assert personas_region.cards[0].kind == "persona"
+    assert personas_region.cards[0].title == "Engineer"
+    assert personas_region.metadata == {"atlas_role": "west", "data_readiness": "real"}
 
 
 def test_atlas_home_represents_empty_regions(
@@ -58,3 +62,4 @@ def test_atlas_home_represents_empty_regions(
         "conversations",
     }
     assert all(region.empty_state for region in home.regions)
+    assert all(region.metadata["data_readiness"] == "empty" for region in home.regions)

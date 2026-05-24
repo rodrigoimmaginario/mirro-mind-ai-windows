@@ -38,6 +38,7 @@ class SurfaceCard:
     count: int | None = None
     status: str | None = None
     accent: str | None = None
+    metadata: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return to_surface_dict(self)
@@ -50,6 +51,7 @@ class AtlasRegion:
     description: str
     cards: tuple[SurfaceCard, ...] = ()
     empty_state: str | None = None
+    metadata: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return to_surface_dict(self)

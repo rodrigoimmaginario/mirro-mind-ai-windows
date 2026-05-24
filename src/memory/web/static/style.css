@@ -66,7 +66,7 @@ input {
 
 .topbar-actions {
   display: flex;
-  align-items: center;
+  align-items: end;
   gap: 14px;
 }
 
@@ -123,6 +123,8 @@ input {
 }
 
 .perspective-tabs button {
+  width: auto;
+  min-width: 108px;
   padding: 8px 14px;
 }
 
@@ -299,7 +301,7 @@ summary:hover {
   background: var(--accent-soft);
 }
 
-nav button {
+.docs-panel nav button {
   width: 100%;
   border: 0;
   border-radius: 8px;
@@ -310,7 +312,7 @@ nav button {
   cursor: pointer;
 }
 
-nav button:hover {
+.docs-panel nav button:hover {
   background: var(--accent-soft);
 }
 

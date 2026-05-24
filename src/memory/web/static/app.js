@@ -17,7 +17,7 @@ async function boot() {
   showWarning(shell.warning);
 
   if (!shell.defaultPerspective) {
-    chooser.hidden = false;
+    chooser.hidden = true;
     activeView = 'atlas';
     await showView('atlas', { updateHash: false });
   } else {

@@ -12,6 +12,7 @@ Future release notes should use the structure defined in [Release Notes](../proc
 
 ## Releases
 
+- [v0.10.16 — Update Action Routing Validation Stub](v0.10.16.md) — minimal stable release used to validate v0.10.15 update-action routing.
 - [v0.10.15 — Update Action Routing](v0.10.15.md) — patch release that routes `update my Mirror` to the safe runtime updater.
 - [v0.10.14 — Update Prompt Wording](v0.10.14.md) — patch release that changes the welcome update prompt to "what's new in this update?".
 - [v0.10.13 — Pending Notes Ref Refresh Validation Stub](v0.10.13.md) — minimal stable release used to validate v0.10.12 pending-notes ref refresh.

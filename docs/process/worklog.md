@@ -12,6 +12,13 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-25 — v0.10.16 update-action routing validation stub prepared
+
+Prepared `v0.10.16 — Update Action Routing Validation Stub` after production was
+updated to v0.10.15. This minimal version/release-note release exists to test
+whether the welcome action `update my Mirror` now invokes the safe runtime
+updater directly in a live release-available state.
+
 ### 2026-05-25 — v0.10.15 release candidate prepared
 
 Prepared `v0.10.15 — Update Action Routing` to publish the new `mm-update` skill

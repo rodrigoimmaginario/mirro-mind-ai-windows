@@ -218,7 +218,7 @@ def _update_line(channel: UpdateChannel, awareness: UpdateAwareness | None = Non
 
 def _update_awareness(home_path: Path, channel: UpdateChannel) -> UpdateAwareness | None:
     cached = _read_update_cache(home_path)
-    if cached and not _cache_is_stale(cached):
+    if cached and not _cache_is_stale(cached) and not _cache_should_refresh(cached, channel):
         return cached
     if _remote_update_check_disabled() or channel.value != "stable":
         return cached
@@ -279,6 +279,16 @@ def _write_update_cache(home_path: Path, awareness: UpdateAwareness) -> None:
         path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except OSError:
         return
+
+
+def _cache_should_refresh(awareness: UpdateAwareness, channel: UpdateChannel) -> bool:
+    """Refresh visible update notices even inside the TTL.
+
+    A cached update notice may point to an intermediate stable release. When the
+    remote stable branch advances again inside the 6-hour TTL, users should see
+    the newest version without manually deleting the cache.
+    """
+    return awareness.availability == "update_available" and channel.value == "stable"
 
 
 def _cache_is_stale(awareness: UpdateAwareness) -> bool:

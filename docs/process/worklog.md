@@ -12,6 +12,18 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-25 — v0.10.2 release candidate prepared
+
+Prepared `v0.10.2 — Fresh Release Awareness` as a patch release candidate after
+production validation showed a fresh welcome cache pinned the visible update
+notice to `v0.10.0` even after stable advanced to `v0.10.1`. The fix refreshes
+visible `update_available` cache entries before rendering while keeping
+`up_to_date` cache entries cheap.
+
+Bumped package version to `0.10.2`, added `docs/releases/v0.10.2.md`, and listed
+it in the release index. Validation: 122 targeted welcome/runtime tests passed;
+ruff lint and format checks passed; `git diff --check` passed.
+
 ### 2026-05-25 — v0.10.1 release candidate prepared
 
 Prepared `v0.10.1 — Welcome Startup Clarity` as a patch release candidate after

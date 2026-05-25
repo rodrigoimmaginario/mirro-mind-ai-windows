@@ -380,7 +380,7 @@ def test_welcome_refreshes_remote_update_cache_and_renders_version(monkeypatch, 
     assert cache["version"] == "v0.9.0"
 
 
-def test_welcome_uses_fresh_cache_without_remote_check(monkeypatch, tmp_path, capsys):
+def test_welcome_uses_fresh_non_update_cache_without_remote_check(monkeypatch, tmp_path, capsys):
     _mem(tmp_path, user="alisson-vale")
     home = tmp_path / ".mirror" / "alisson-vale"
     cache_path = home / "runtime" / "update-check.json"
@@ -390,11 +390,11 @@ def test_welcome_uses_fresh_cache_without_remote_check(monkeypatch, tmp_path, ca
             {
                 "checked_at": datetime.now(timezone.utc).isoformat(),
                 "channel": "stable",
-                "availability": "update_available",
+                "availability": "up_to_date",
                 "current_commit": "abc",
-                "remote_commit": "def",
-                "version": "v0.9.0",
-                "title": "Self-Update Done",
+                "remote_commit": "abc",
+                "version": None,
+                "title": None,
             }
         ),
         encoding="utf-8",
@@ -414,7 +414,58 @@ def test_welcome_uses_fresh_cache_without_remote_check(monkeypatch, tmp_path, ca
     main(["--mirror-home", str(home)])
 
     assert called == []
-    assert "New Version Available: v0.9.0 — Self-Update Done" in capsys.readouterr().out
+    assert "New Version Available" not in capsys.readouterr().out
+
+
+def test_welcome_refreshes_fresh_update_cache_when_stable_advances(monkeypatch, tmp_path, capsys):
+    _mem(tmp_path, user="alisson-vale")
+    home = tmp_path / ".mirror" / "alisson-vale"
+    cache_path = home / "runtime" / "update-check.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "channel": "stable",
+                "availability": "update_available",
+                "current_commit": "abc",
+                "remote_commit": "old",
+                "version": "v0.10.0",
+                "title": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("memory.cli.welcome.package_version", lambda: "0.9.1")
+    monkeypatch.setattr(
+        "memory.cli.welcome.inspect_update_channel", lambda start: UpdateChannel("stable", None)
+    )
+    monkeypatch.setattr(
+        "memory.cli.welcome.check_runtime_update_availability",
+        lambda channel=None: RuntimeUpdateAvailability(
+            "0.9.1",
+            "origin/stable",
+            "abc",
+            "new",
+            "update_available",
+            update_channel=UpdateChannel("stable", None),
+        ),
+    )
+    monkeypatch.setattr(
+        "memory.cli.welcome._remote_tag_for_commit",
+        lambda upstream, remote_commit: "v0.10.1",
+    )
+    monkeypatch.setattr("memory.cli.welcome._local_release_title", lambda version: None)
+
+    from memory.cli.welcome import main
+
+    main(["--mirror-home", str(home)])
+
+    out = capsys.readouterr().out
+    assert "New Version Available: v0.10.1" in out
+    cache = json.loads(cache_path.read_text(encoding="utf-8"))
+    assert cache["remote_commit"] == "new"
+    assert cache["version"] == "v0.10.1"
 
 
 def test_welcome_remote_check_can_be_disabled(monkeypatch, tmp_path, capsys):

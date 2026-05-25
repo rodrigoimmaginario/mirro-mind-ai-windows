@@ -839,9 +839,49 @@ input {
   background: color-mix(in srgb, var(--panel) 82%, transparent);
 }
 
+.conversation-card {
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 62%),
+    color-mix(in srgb, var(--panel) 86%, transparent);
+}
+
+.conversation-card-body {
+  min-width: 0;
+}
+
+.conversation-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.conversation-message-count {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.conversation-icon {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: 18px;
+}
+
 .workspace-card h4,
 .workspace-card p {
   margin: 0;
+}
+
+.workspace-card h4 {
+  overflow-wrap: anywhere;
 }
 
 .workspace-card p {

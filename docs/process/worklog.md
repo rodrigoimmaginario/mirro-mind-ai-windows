@@ -12,6 +12,17 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-25 — CV13.E1.S5 conversation card refinement validated
+
+Completed the fifth CV13.E1 read-only refinement story. Conversation cards in
+Workspace now use a dedicated renderer with a prominent message-count chip,
+short relative dates, persona and journey icon chips, and contextual icons that
+prefer persona when present. Internal readiness metadata was removed from card
+chips so the surface stays user-facing.
+
+Validation: focused Workspace/web tests passed, `node --check` passed, `git diff
+--check` passed, and Navigator browser validation accepted the card treatment.
+
 ### 2026-05-25 — CV13.E1.S4 search results page validated
 
 Completed the fourth CV13.E1 read-only refinement story. The header search now

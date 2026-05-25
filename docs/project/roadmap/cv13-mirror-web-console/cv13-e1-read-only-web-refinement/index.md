@@ -33,6 +33,7 @@ Initial backlog:
 | [CV13.E1.S2](cv13-e1-s2-three-letter-persona-tokens/index.md) | Three-letter persona tokens | Persona icons in the Identity map use stable three-letter tokens instead of shorter two-letter initials | ✅ Done |
 | [CV13.E1.S3](cv13-e1-s3-memory-category-drilldown/index.md) | Memory category drilldown | Memory category cards in the Identity map open a read-only page with recent memories from that category | ✅ Done |
 | [CV13.E1.S4](cv13-e1-s4-search-results-page/index.md) | Search results page | The header search opens a read-only results page over recent retained memories | ✅ Done |
+| [CV13.E1.S5](cv13-e1-s5-conversation-card-refinement/index.md) | Conversation card refinement | Conversation cards in the selected journey tab are easier to scan, with clearer message, persona, journey, and date metadata | ✅ Done |
 
 ---
 

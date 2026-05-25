@@ -268,6 +268,8 @@ function conceptFallbackIcon(role) {
 }
 
 function renderWorkspaceCard(card) {
+  if (card.kind === 'conversation') return renderConversationCard(card);
+
   const icon = card.metadata?.icon || '◇';
   const metaParts = [card.kind, card.status, card.accent].filter(Boolean);
   const detail = workspaceCardDetail(card);
@@ -284,16 +286,44 @@ function renderWorkspaceCard(card) {
   `;
 }
 
+function renderConversationCard(card) {
+  const metadata = card.metadata || {};
+  const icon = metadata.persona ? '✣' : '☷';
+  const started = formatDate(metadata.started_at);
+  const messageCount = Number(metadata.message_count || 0);
+  const messageLabel = messageCount === 1 ? '1 message' : `${messageCount} messages`;
+  const chips = [
+    metadata.persona ? `✣ ${metadata.persona}` : null,
+    metadata.journey ? `⌁ ${metadata.journey}` : null,
+    started ? `◷ ${started}` : null,
+  ].filter(Boolean).map((value) => `<span>${escapeHtml(value)}</span>`).join('');
+  return `
+    <article class="workspace-card conversation-card">
+      <div class="workspace-card-icon conversation-icon" aria-hidden="true">${escapeHtml(icon)}</div>
+      <div class="conversation-card-body">
+        <div class="conversation-card-head">
+          <div>
+            <div class="card-meta">Conversation${card.status ? ` · ${escapeHtml(card.status)}` : ''}</div>
+            <h4>${escapeHtml(card.title)}</h4>
+          </div>
+          <strong class="conversation-message-count">${escapeHtml(messageLabel)}</strong>
+        </div>
+        ${card.description ? `<p>${escapeHtml(card.description)}</p>` : ''}
+        ${chips ? `<div class="workspace-card-detail">${chips}</div>` : ''}
+      </div>
+    </article>
+  `;
+}
+
 function workspaceCardDetail(card) {
   const metadata = card.metadata || {};
   const values = [];
-  if (metadata.journey) values.push(`Journey: ${metadata.journey}`);
-  if (metadata.persona) values.push(`Persona: ${metadata.persona}`);
-  if (metadata.message_count !== undefined) values.push(`${metadata.message_count} messages`);
+  if (metadata.journey) values.push(`⌁ ${metadata.journey}`);
+  if (metadata.persona) values.push(`✣ ${metadata.persona}`);
+  if (metadata.message_count !== undefined) values.push(`☷ ${metadata.message_count} messages`);
   if (metadata.memory_type) values.push(`Type: ${metadata.memory_type}`);
   if (metadata.stage) values.push(`Stage: ${metadata.stage}`);
   if (metadata.due_date) values.push(`Due: ${metadata.due_date}`);
-  if (metadata.data_readiness) values.push(`Readiness: ${metadata.data_readiness}`);
   return values.map((value) => `<span>${escapeHtml(value)}</span>`).join('');
 }
 
@@ -858,6 +888,30 @@ async function fetchJson(url, options = {}) {
   return payload;
 }
 
+
+function formatDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  const diffMs = Date.now() - date.getTime();
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+  if (diffMs >= 0 && diffMs < minuteMs) return 'just now';
+  if (diffMs >= 0 && diffMs < hourMs) {
+    const minutes = Math.floor(diffMs / minuteMs);
+    return `${minutes}m ago`;
+  }
+  if (diffMs >= 0 && diffMs < dayMs) {
+    const hours = Math.floor(diffMs / hourMs);
+    return `${hours}h ago`;
+  }
+  if (diffMs >= 0 && diffMs < 30 * dayMs) {
+    const days = Math.floor(diffMs / dayMs);
+    return `${days}d ago`;
+  }
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 function escapeHtml(value) {
   return String(value)

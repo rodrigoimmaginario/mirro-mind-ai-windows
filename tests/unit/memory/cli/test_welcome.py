@@ -72,6 +72,7 @@ def test_welcome_empty_when_mirror_welcome_off(monkeypatch, tmp_path, capsys):
 
 def test_welcome_has_version_stats_and_blank_before_invitation(monkeypatch, tmp_path, capsys):
     _mem(tmp_path, user="alisson-vale")
+    monkeypatch.setenv("MIRROR_WELCOME_REMOTE_UPDATE_CHECK", "off")
     monkeypatch.setattr("memory.cli.welcome.package_version", lambda: "0.7.0")
     monkeypatch.setattr(
         "memory.cli.welcome.inspect_update_channel", lambda start: UpdateChannel("stable", None)
@@ -287,6 +288,7 @@ def test_welcome_since_label_formats_month_year(tmp_path, capsys, month_iso, exp
 
 def test_welcome_renders_update_available_from_local_refs(monkeypatch, tmp_path, capsys):
     _mem(tmp_path, user="alisson-vale")
+    monkeypatch.setenv("MIRROR_WELCOME_REMOTE_UPDATE_CHECK", "off")
     monkeypatch.setattr("memory.cli.welcome.package_version", lambda: "0.7.0")
     monkeypatch.setattr(
         "memory.cli.welcome.inspect_update_channel", lambda start: UpdateChannel("stable", None)
@@ -312,6 +314,7 @@ def test_welcome_renders_update_available_from_local_refs(monkeypatch, tmp_path,
 
 def test_welcome_does_not_render_update_line_when_refs_are_current(monkeypatch, tmp_path, capsys):
     _mem(tmp_path, user="alisson-vale")
+    monkeypatch.setenv("MIRROR_WELCOME_REMOTE_UPDATE_CHECK", "off")
     monkeypatch.setattr("memory.cli.welcome.package_version", lambda: "0.7.0")
     monkeypatch.setattr(
         "memory.cli.welcome.inspect_update_channel", lambda start: UpdateChannel("stable", None)

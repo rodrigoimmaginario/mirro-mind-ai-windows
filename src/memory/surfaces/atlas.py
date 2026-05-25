@@ -328,6 +328,10 @@ def _humanize_key(key: str) -> str:
 
 
 def _title_for_identity(row: Identity) -> str:
+    if row.layer == "self":
+        return "Soul"
+    if row.layer == "shadow":
+        return "Tension"
     first_heading = next(
         (
             line.removeprefix("#").strip()

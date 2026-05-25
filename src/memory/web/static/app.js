@@ -140,7 +140,7 @@ function renderPersonaToken(card) {
   const initials = card.metadata?.icon || card.title.slice(0, 2).toUpperCase();
   const label = card.metadata?.display_label || card.title;
   return `
-    <button type="button" class="persona-token" title="${escapeHtml(card.title)}">
+    <button type="button" class="persona-token" title="${escapeHtml(card.title)}" data-object-kind="${escapeHtml(card.kind)}" data-object-id="${escapeHtml(card.id)}">
       <span class="persona-avatar">${escapeHtml(initials)}</span>
       <span>${escapeHtml(label)}</span>
     </button>
@@ -158,8 +158,10 @@ function renderConceptRegion(region, role) {
   const variants = (card?.metadata?.variants || [])
     .map((variant) => `<span>${escapeHtml(variant.label || variant.key)}</span>`)
     .join('');
+  const target = objectTargetFromHref(card?.href) || (card ? { kind: card.kind, id: card.id } : null);
+  const targetAttrs = target ? ` role="button" tabindex="0" data-object-kind="${escapeHtml(target.kind)}" data-object-id="${escapeHtml(target.id)}"` : '';
   return `
-    <section class="atlas-region atlas-concept atlas-${escapeHtml(role)}">
+    <section class="atlas-region atlas-concept atlas-${escapeHtml(role)}"${targetAttrs}>
       <div class="concept-icon" aria-label="${escapeHtml(region.title)}">${escapeHtml(icon)}</div>
       <p class="concept-kicker">${escapeHtml(region.title)}</p>
       <h3>${escapeHtml(title)}</h3>
@@ -190,6 +192,179 @@ function renderWorkspaceSection(section) {
       ${cards ? `<div class="card-grid compact">${cards}</div>` : `<p class="empty-state">${escapeHtml(section.empty_state || 'Nothing to show yet.')}</p>`}
     </section>
   `;
+}
+
+async function loadObject(kind, id) {
+  activeView = 'object';
+  docsPanel.hidden = true;
+  currentPath.hidden = true;
+  contentGrid.classList.remove('docs-active');
+  tabs.forEach((tab) => tab.classList.remove('active'));
+  activePerspective.textContent = 'Perspective · Identity';
+
+  const encodedKind = encodeURIComponent(kind);
+  const encodedId = encodeURIComponent(id);
+  const response = await fetch(`/api/surface/object?kind=${encodedKind}&id=${encodedId}`);
+  const detail = await response.json();
+  if (!response.ok) {
+    content.innerHTML = renderObjectError(detail.error || 'Object not found');
+    return;
+  }
+  content.innerHTML = renderObjectDetail(detail);
+  window.scrollTo({ top: 0 });
+}
+
+function renderObjectError(message) {
+  return `
+    <section class="surface-intro">
+      <button type="button" class="text-link" data-back-view="atlas">← Back to Identity Map</button>
+      <p class="eyebrow">Object detail</p>
+      <h2>Object not found</h2>
+      <p>${escapeHtml(message)}</p>
+    </section>
+  `;
+}
+
+function renderObjectDetail(detail) {
+  const metadata = detail.metadata || {};
+  const chips = (metadata.chips || [])
+    .map((chip) => `<span>${escapeHtml(chip)}</span>`)
+    .join('');
+  const relationships = (detail.relationships || [])
+    .map(renderRelationship)
+    .join('');
+  const renderedContent = renderDetailContent(detail.content || 'No content available.');
+  const metadataRows = Object.entries(metadata)
+    .filter(([key]) => !['chips', 'icon'].includes(key))
+    .map(([key, value]) => `<div><span>${escapeHtml(key)}</span><strong>${escapeHtml(value ?? '')}</strong></div>`)
+    .join('');
+  const source = detail.source || {};
+  return `
+    <button type="button" class="text-link detail-back" data-back-view="atlas">← Back to Identity Map</button>
+    <section class="object-detail">
+      <div class="object-summary">
+        <div class="concept-icon" aria-label="${escapeHtml(metadata.public_kind || detail.kind)}">${escapeHtml(metadata.icon || '◇')}</div>
+        <p class="concept-kicker">${escapeHtml(metadata.public_kind || detail.kind)}</p>
+        <h2>${escapeHtml(detail.title)}</h2>
+        <p>${escapeHtml(detail.description || '')}</p>
+        ${chips ? `<div class="variant-list concept-chips" aria-label="Concepts">${chips}</div>` : ''}
+      </div>
+      <aside class="source-panel">
+        <p class="eyebrow">${escapeHtml(source.label || 'Source')}</p>
+        <h3>Where this comes from</h3>
+        <p>${escapeHtml(source.description || 'No source context is available yet.')}</p>
+        ${source.path ? `<code>${escapeHtml(source.path)}</code>` : ''}
+        ${source.provenance_state ? `<p class="source-state">${escapeHtml(source.provenance_state)}</p>` : ''}
+      </aside>
+      <section class="detail-block detail-content">
+        <p class="eyebrow">Content</p>
+        <div class="rendered-content">${renderedContent}</div>
+      </section>
+      <section class="detail-block">
+        <p class="eyebrow">Related</p>
+        ${relationships ? `<div class="relationship-list">${relationships}</div>` : `<p class="empty-state">No related objects are available yet.</p>`}
+      </section>
+      <section class="detail-block">
+        <p class="eyebrow">Metadata</p>
+        ${metadataRows ? `<div class="metadata-list">${metadataRows}</div>` : `<p class="empty-state">No metadata available.</p>`}
+      </section>
+    </section>
+  `;
+}
+
+function renderRelationship(link) {
+  if (link.kind === 'identity' && link.id) {
+    return `<button type="button" class="relationship-pill" data-object-kind="identity" data-object-id="${escapeHtml(link.id)}">${escapeHtml(link.label)}</button>`;
+  }
+  return `<span class="relationship-pill muted">${escapeHtml(link.label)}</span>`;
+}
+
+function renderDetailContent(content) {
+  if (!looksLikeMarkdown(content)) {
+    return `<pre>${escapeHtml(content)}</pre>`;
+  }
+
+  const lines = content.split('\n');
+  const blocks = [];
+  let paragraph = [];
+  let list = [];
+  let code = [];
+  let inCode = false;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(`<p>${escapeHtml(paragraph.join(' '))}</p>`);
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (!list.length) return;
+    blocks.push(`<ul>${list.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`);
+    list = [];
+  };
+  const flushCode = () => {
+    blocks.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+    code = [];
+  };
+
+  for (const line of lines) {
+    if (line.trim().startsWith('```')) {
+      if (inCode) {
+        flushCode();
+        inCode = false;
+      } else {
+        flushParagraph();
+        flushList();
+        inCode = true;
+      }
+      continue;
+    }
+    if (inCode) {
+      code.push(line);
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const level = heading[1].length + 2;
+      blocks.push(`<h${level}>${escapeHtml(heading[2])}</h${level}>`);
+      continue;
+    }
+
+    const bullet = line.match(/^\s*[-*]\s+(.+)$/);
+    if (bullet) {
+      flushParagraph();
+      list.push(bullet[1]);
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    flushList();
+    paragraph.push(line.trim());
+  }
+  flushParagraph();
+  flushList();
+  if (inCode) flushCode();
+
+  return blocks.join('\n') || `<pre>${escapeHtml(content)}</pre>`;
+}
+
+function looksLikeMarkdown(content) {
+  return /(^|\n)#{1,6}\s+\S/.test(content)
+    || /(^|\n)\s*[-*]\s+\S/.test(content)
+    || /(^|\n)```/.test(content);
+}
+
+function objectTargetFromHref(href) {
+  const match = String(href || '').match(/^\/objects\/([^/]+)\/(.+)$/);
+  if (!match) return null;
+  return { kind: decodeURIComponent(match[1]), id: decodeURIComponent(match[2]) };
 }
 
 function renderMemoryCategory(card) {
@@ -329,6 +504,20 @@ async function loadDoc(path, { replace = false } = {}) {
 }
 
 content.addEventListener('click', async (event) => {
+  const objectTarget = event.target.closest('[data-object-kind][data-object-id]');
+  if (objectTarget) {
+    event.preventDefault();
+    await loadObject(objectTarget.dataset.objectKind, objectTarget.dataset.objectId);
+    return;
+  }
+
+  const backTarget = event.target.closest('[data-back-view]');
+  if (backTarget) {
+    event.preventDefault();
+    await showView(backTarget.dataset.backView || 'atlas');
+    return;
+  }
+
   const link = event.target.closest('a');
   if (!link || activeView !== 'docs' || !currentDocPath) return;
 
@@ -343,6 +532,13 @@ content.addEventListener('click', async (event) => {
   if (resolved.hash) {
     document.querySelector(resolved.hash)?.scrollIntoView();
   }
+});
+
+content.addEventListener('keydown', async (event) => {
+  const objectTarget = event.target.closest('[data-object-kind][data-object-id]');
+  if (!objectTarget || !['Enter', ' '].includes(event.key)) return;
+  event.preventDefault();
+  await loadObject(objectTarget.dataset.objectKind, objectTarget.dataset.objectId);
 });
 
 document.querySelectorAll('[data-choose]').forEach((button) => {

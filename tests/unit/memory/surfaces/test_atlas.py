@@ -36,7 +36,7 @@ def test_atlas_home_surfaces_real_identity_and_personas(
 
     assert identity_region.title == "Self"
     assert identity_region.description == "Who you really are."
-    assert identity_region.cards[0].title == "Alma"
+    assert identity_region.cards[0].title == "Soul"
     assert identity_region.cards[0].description == "Who you really are."
     assert identity_region.cards[0].metadata["icon"] == "♛"
     assert identity_region.cards[0].metadata["chips"] == ("Purpose", "Principles", "Values")

@@ -112,6 +112,17 @@ class EvidenceBundle:
 
 
 @dataclass(frozen=True)
+class SourceContext:
+    label: str
+    path: str
+    description: str
+    provenance_state: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return to_surface_dict(self)
+
+
+@dataclass(frozen=True)
 class ObjectDetail:
     id: str
     kind: str
@@ -119,6 +130,7 @@ class ObjectDetail:
     description: str
     content: str | None = None
     relationships: tuple[SurfaceLink, ...] = ()
+    source: SourceContext | None = None
     evidence: EvidenceBundle | None = None
     metadata: dict[str, Any] | None = None
 

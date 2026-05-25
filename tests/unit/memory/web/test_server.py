@@ -115,11 +115,30 @@ def test_surface_apis_serialize_core_surface_read_models(tmp_path: Path) -> None
     try:
         atlas_status, atlas = server.request("GET", "/api/surface/atlas")
         workspace_status, workspace = server.request("GET", "/api/surface/workspace")
+        detail_status, detail = server.request(
+            "GET", "/api/surface/object?kind=identity&id=ego%3Aidentity"
+        )
     finally:
         server.close()
 
     assert atlas_status == 200
     assert workspace_status == 200
+    assert detail_status == 200
     ego_region = next(region for region in atlas["regions"] if region["id"] == "ego")
     assert ego_region["cards"][0]["id"] == "ego"
     assert "sections" in workspace
+    assert detail["id"] == "ego:identity"
+    assert detail["source"]["path"] == "identity/ego/identity"
+
+
+def test_object_detail_api_returns_404_for_missing_object(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    db_path = mirror_home / "memory.db"
+    server = WebTestServer(root=make_docs_root(tmp_path), mirror_home=mirror_home, db_path=db_path)
+    try:
+        status, payload = server.request("GET", "/api/surface/object?kind=identity&id=missing")
+    finally:
+        server.close()
+
+    assert status == 404
+    assert payload == {"error": "Object not found"}

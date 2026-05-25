@@ -33,7 +33,7 @@ CV9.E6 delivers a read-only web visibility path for Mirror 1.0:
 - a Core Surface layer for web read models;
 - a stable web shell with perspective selection and switching;
 - a user-home default perspective preference;
-- an Atlas vertical slice with real identity and persona data;
+- an Identity vertical slice with real identity and persona data;
 - object detail and evidence affordances for supported objects;
 - a first Workspace dashboard slice after the Atlas path proves the architecture;
 - manual validation against the personal Mirror.
@@ -58,8 +58,8 @@ CV9.E6 delivers a read-only web visibility path for Mirror 1.0:
 | [CV9.E6.S1](cv9-e6-s1-web-surface-foundation/index.md) | Web Surface Foundation | The core exposes typed read models for Atlas, Workspace, object detail, evidence, and search without web routes querying internal data directly | ✅ Done |
 | [CV9.E6.S2](cv9-e6-s2-perspective-shell/index.md) | Perspective Shell and Preference | The local web app lets the user choose Atlas or Workspace, stores the default in the user home, and keeps a stable shell across perspectives | ✅ Done |
 | [CV9.E6.S3](cv9-e6-s3-atlas-identity-persona-map/index.md) | Identity Map Page | Identity opens as a reflective map of Self, Ego, Shadow, Personas, and Memories | ✅ Done |
-| [CV9.E6.S4](cv9-e6-s4-object-detail-evidence/index.md) | Object Detail and Evidence Affordance | Supported objects open into a common detail view with relationships and honest evidence/provenance states | ⏭️ Next |
-| [CV9.E6.S5](cv9-e6-s5-workspace-dashboard/index.md) | Workspace Dashboard Slice | Workspace shows an analytical dashboard for active journeys, recent conversations, and available operational context | 🟡 Planned |
+| [CV9.E6.S4](cv9-e6-s4-object-detail-evidence/index.md) | Object Detail and Source Context | Supported objects open into a common detail view with related objects, rendered content, metadata, and clear source context | ✅ Done |
+| [CV9.E6.S5](cv9-e6-s5-workspace-dashboard/index.md) | Workspace Dashboard Slice | Workspace shows an analytical dashboard for active journeys, recent conversations, and available operational context | ⏭️ Next |
 | [CV9.E6.S6](cv9-e6-s6-personal-mirror-validation/index.md) | Personal Mirror Validation | The 1.0 web visibility surface is validated against the real personal Mirror and documented with evidence and follow-up | 🟡 Planned |
 
 ---
@@ -105,15 +105,15 @@ Search
 S1 Web Surface Foundation
   └── S2 Perspective Shell and Preference
         └── S3 Identity Map Page
-              └── S4 Object Detail and Evidence Affordance
+              └── S4 Object Detail and Source Context
                     ├── S5 Workspace Dashboard Slice
                     └── S6 Personal Mirror Validation
 ```
 
 S1 and S2 establish the technical and interaction frame. S3 and S4 prove the
-Atlas vertical slice. S5 adds the first Workspace read model after the surface
-pattern exists. S6 validates the release surface against the real personal
-Mirror and may produce follow-up stories.
+Identity vertical slice. S5 adds the first Workspace read model after the
+surface pattern exists. S6 validates the release surface against the real
+personal Mirror and may produce follow-up stories.
 
 ---
 
@@ -128,8 +128,8 @@ CV9.E6 is done when:
 - the default perspective is stored in the user home;
 - Atlas shows a read-only psyche map with real identity and persona data;
 - supported objects open into a common detail view;
-- evidence/provenance affordances exist and are honest when provenance is
-  missing;
+- source context exists for supported objects and is honest when deeper
+  provenance is missing;
 - Workspace shows a first useful read-only operational dashboard;
 - automated tests cover surface composition independently from HTTP transport;
 - manual validation on the personal Mirror demonstrates that a user can
@@ -152,7 +152,7 @@ Can I see my identity?
 Can I see my personas?
 Can I understand the Atlas map?
 Can I open a supported object detail?
-Can I see whether evidence exists for a claim?
+Can I see where a supported object comes from and whether deeper provenance exists?
 Can I understand which areas are partial or not supported yet?
 ```
 

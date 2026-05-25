@@ -40,9 +40,11 @@ In progress. Mirror Mind 1.0 focuses on refactoring, stabilization, release
 hardening, documentation polish, process/versioning alignment, web visibility,
 and public readiness. Documentation Polish (CV9.E4), Process & Versioning
 Alignment (CV9.E5), and Distribution & Tooling (CV9.E3) are complete. Web
-Visibility (CV9.E6) is planned to make core Mirror data visible through local
-read-only Atlas and Workspace perspectives. Boundary Hardening and Stabilization
-remain planned before the full CV9 done condition is met.
+Visibility (CV9.E6) is now active: S1 Web Surface Foundation, S2 Perspective
+Shell and Preference, S3 Identity Map Page, and S4 Object Detail and Source
+Context are done on the `feature/cv9-e6-web-visibility` branch; S5 Workspace
+Dashboard Slice is next. Boundary Hardening and Stabilization remain planned before
+the full CV9 done condition is met.
 
 ---
 
@@ -67,8 +69,10 @@ the [CV12 index](cv12-audience-modes/index.md).
 
 ## CV13 — Mirror Web Console
 
-Planned. CV13 adds a local-first web interface for inspecting Mirror context.
-The first slice is a read-only Markdown documentation browser. See the [CV13 index](cv13-mirror-web-console/index.md).
+Planned/deferred. The local web interface work is currently advancing inside
+CV9.E6 Web Visibility so the 1.0 release can ship read-only Identity and
+Workspace perspectives first. CV13 remains the broader post-1.0 web console
+track for future inspection/editing expansion. See the [CV13 index](cv13-mirror-web-console/index.md).
 
 ## CV3 — Pi Skill Parity
 

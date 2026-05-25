@@ -52,6 +52,18 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
                 self._send_json(mem.surfaces.workspace_home().to_dict())
             return
 
+        if parsed.path == "/api/surface/object":
+            query = parse_qs(parsed.query)
+            kind = query.get("kind", [""])[0]
+            object_id = query.get("id", [""])[0]
+            with MemoryClient(db_path=self.db_path) as mem:
+                detail = mem.surfaces.object_detail(kind, object_id)
+            if detail is None:
+                self._send_json({"error": "Object not found"}, status=404)
+                return
+            self._send_json(detail.to_dict())
+            return
+
         if parsed.path == "/api/docs/tree":
             self._send_json([node.to_dict() for node in self.browser.tree()])
             return

@@ -12,6 +12,14 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-24 — Object detail and source context added
+
+Completed CV9.E6.S4. The Identity Map now drills into supported objects through a shared read-only detail view. Self, Ego, Shadow, and personas open into a common page with summary, rendered Markdown-like content, Source context, Related links, and metadata.
+
+The public language moved from technical evidence/provenance affordance to **Source Context**. Identity and persona details show explicit source paths such as `identity/self/soul` or `persona/engineer` and state when content is not inferred from memories. Shadow can open as an honest placeholder when no explicit shadow entry exists. Persona detail titles and icons now use product labels rather than legacy headings inside persona content.
+
+Validation: `uv run pytest tests/unit/memory/surfaces tests/unit/memory/web tests/unit/memory/test_public_api.py` passed with 37 tests; Ruff lint and format checks passed; `node --check src/memory/web/static/app.js` passed; manual browser review accepted the detail experience.
+
 ### 2026-05-24 — Agentic web console idea captured
 
 During CV9.E6 web visibility work, captured a future product direction: a browser-based agentic console where users express Mirror update intent in natural language, a headless agent proposes or performs controlled operations, and the browser shows the run timeline, approvals, and evidence.

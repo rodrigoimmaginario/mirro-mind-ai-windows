@@ -22,6 +22,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { spawn } from "node:child_process";
 
 // Respect MEMORY_DIR so Pi session files land in the same directory Python reads.
 // Fallback to ~/.mirror if unset.
@@ -61,6 +62,39 @@ export default function (pi: ExtensionAPI) {
 			appendFileSync(LOG_FILE, `${ts} [${level}] ${msg}\n`);
 		} catch {
 			// Logging failure must never break anything
+		}
+	}
+
+	function runPyBackground(args: string[], label: string, onComplete?: (output: string) => void): void {
+		try {
+			const child = spawn("uv", ["run", "python", ...args], {
+				cwd: process.cwd(),
+				stdio: ["ignore", "pipe", "pipe"],
+				detached: false,
+			});
+			let stdout = "";
+			let stderr = "";
+			child.stdout.on("data", (chunk) => {
+				stdout += String(chunk);
+			});
+			child.stderr.on("data", (chunk) => {
+				stderr += String(chunk);
+			});
+			child.on("error", (err) => {
+				log("ERROR", `${label} failed to start: ${err.message.slice(0, 500)}`);
+			});
+			child.on("close", (code) => {
+				if (stderr.trim()) {
+					log("WARN", `${label} stderr: ${stderr.trim().slice(0, 500)}`);
+				}
+				log(code === 0 ? "INFO" : "ERROR", `${label} exited ${code}: ${(stdout.trim() || "(empty)").slice(0, 1000)}`);
+				if (code === 0 && onComplete) {
+					onComplete(stdout.trim());
+				}
+			});
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			log("ERROR", `${label} failed: ${message.slice(0, 500)}`);
 		}
 	}
 
@@ -191,9 +225,9 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		log("INFO", "session_start fired");
 		if (ctx.hasUI) {
-			ctx.ui.setStatus("mirror", "◇ Mirror · starting: checking sessions and memories…");
+			ctx.ui.setStatus("mirror", "◇ Mirror · starting… maintenance will continue in background");
 		}
-		const summary = await runPy(["-m", "memory", "conversation-logger", "session-start"]);
+		const summary = await runPy(["-m", "memory", "conversation-logger", "session-start", "--fast"]);
 		if (ctx.hasUI) {
 			ctx.ui.setStatus("mirror", "◇ Mirror · checking release status…");
 		}
@@ -220,6 +254,12 @@ export default function (pi: ExtensionAPI) {
 				"mirror",
 				externalSkills.length > 0 ? `${status} · ext ${externalSkills.length}` : status,
 			);
+			runPyBackground(["-m", "memory", "conversation-logger", "session-maintenance"], "session-maintenance", (output) => {
+				const firstLine = output.split("\n")[0] || "Conversation maintenance complete.";
+				ctx.ui.setStatus("mirror-maintenance", firstLine);
+			});
+		} else {
+			runPyBackground(["-m", "memory", "conversation-logger", "session-maintenance"], "session-maintenance");
 		}
 	});
 

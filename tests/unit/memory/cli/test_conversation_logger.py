@@ -229,6 +229,23 @@ class TestJourneyAssociationRepair:
 
 
 class TestSessionStart:
+    def test_fast_start_unmutes_without_maintenance(self, mocker, tmp_path):
+        mocker.patch("memory.cli.conversation_logger._MUTE_FLAG_PATH", tmp_path / "mute")
+        extract = mocker.patch("memory.cli.conversation_logger.extract_pending", return_value=0)
+        close = mocker.patch("memory.cli.conversation_logger.close_stale_orphans", return_value=0)
+        backfill = mocker.patch(
+            "memory.cli.conversation_logger.backfill_pi_sessions", return_value=0
+        )
+
+        from memory.cli.conversation_logger import session_start_fast
+
+        result = session_start_fast()
+        assert "ACTIVE" in result
+        assert "deferred" in result
+        extract.assert_not_called()
+        close.assert_not_called()
+        backfill.assert_not_called()
+
     def test_unmutes_and_returns_active(self, mocker, tmp_path):
         mocker.patch("memory.cli.conversation_logger._MUTE_FLAG_PATH", tmp_path / "mute")
         mocker.patch("memory.cli.conversation_logger.extract_pending", return_value=0)
@@ -249,9 +266,9 @@ class TestSessionStart:
         from memory.cli.conversation_logger import session_start
 
         result = session_start()
-        assert "Closed 2" in result
-        assert "Backfilled 1" in result
-        assert "Extracted memories from 3" in result
+        assert "Closed stale conversations: 2" in result
+        assert "Backfilled Pi sessions: 1" in result
+        assert "Extracted pending conversations: 3" in result
 
 
 class TestCloseStaleOrphans:

@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -275,20 +276,48 @@ def extract_pending(mirror_home: str | Path | None = None) -> int:
     return len(pending)
 
 
+def session_start_fast(mirror_home: str | Path | None = None) -> str:
+    """Start logging without running expensive maintenance work."""
+    set_mute(False, mirror_home)
+    return "Conversation logging ACTIVE. Maintenance deferred."
+
+
+def _timed_step(label: str, fn) -> tuple[str, int, float]:
+    started = time.monotonic()
+    count = fn()
+    elapsed = time.monotonic() - started
+    return label, count, elapsed
+
+
+def session_maintenance(mirror_home: str | Path | None = None) -> str:
+    """Run startup maintenance with per-step timing.
+
+    This may be slow because extraction can call LLMs. Pi runs it in the
+    background so opening the runtime is not blocked by pending maintenance.
+    """
+    steps = [
+        _timed_step(
+            "Closed stale conversations",
+            lambda: close_stale_orphans(threshold_minutes=30, mirror_home=mirror_home),
+        ),
+        _timed_step(
+            "Backfilled Pi sessions", lambda: backfill_pi_sessions(mirror_home=mirror_home)
+        ),
+        _timed_step(
+            "Extracted pending conversations", lambda: extract_pending(mirror_home=mirror_home)
+        ),
+    ]
+    parts = ["Conversation maintenance complete."]
+    for label, count, elapsed in steps:
+        parts.append(f"{label}: {count} ({elapsed:.1f}s)")
+    return "\n".join(parts)
+
+
 def session_start(mirror_home: str | Path | None = None) -> str:
     """Unmute, close stale orphans, backfill Pi sessions, and run pending extraction."""
     set_mute(False, mirror_home)
-    orphans = close_stale_orphans(threshold_minutes=30, mirror_home=mirror_home)
-    backfilled = backfill_pi_sessions(mirror_home=mirror_home)
-    extracted = extract_pending(mirror_home=mirror_home)
-    parts = ["Conversation logging ACTIVE."]
-    if orphans:
-        parts.append(f"Closed {orphans} stale conversation(s).")
-    if backfilled:
-        parts.append(f"Backfilled {backfilled} Pi session(s).")
-    if extracted:
-        parts.append(f"Extracted memories from {extracted} pending conversation(s).")
-    return "\n".join(parts)
+    maintenance = session_maintenance(mirror_home=mirror_home)
+    return "\n".join(["Conversation logging ACTIVE.", maintenance])
 
 
 def close_stale_orphans(
@@ -763,7 +792,12 @@ def main(argv: list[str] | None = None) -> None:
             fn = log_user_message if cmd == "log-user" else log_assistant_message
             fn(remaining[0], remaining[1], interface=interface, mirror_home=mirror_home)
     elif cmd == "session-start":
-        print(session_start(mirror_home=mirror_home))
+        if "--fast" in args:
+            print(session_start_fast(mirror_home=mirror_home))
+        else:
+            print(session_start(mirror_home=mirror_home))
+    elif cmd == "session-maintenance":
+        print(session_maintenance(mirror_home=mirror_home))
     elif cmd == "session-end-pi":
         if len(args) >= 2:
             end_session(args[1], extract=False, mirror_home=mirror_home)

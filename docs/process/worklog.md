@@ -12,6 +12,37 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-25 — v0.10.3 release candidate prepared
+
+Prepared `v0.10.3 — Pi Startup Maintenance` as a patch release candidate after
+production validation confirmed conversation maintenance was blocking Pi startup.
+Bumped package version to `0.10.3`, added `docs/releases/v0.10.3.md`, and listed
+it in the release index.
+
+Release-note smoke renders `v0.10.3` correctly. Validation: 142 focused tests
+passed; ruff lint and format checks passed; `node --check
+.pi/extensions/mirror-logger.ts` passed; `git diff --check` passed.
+
+### 2026-05-25 — Pi startup maintenance moved to background
+
+Production validation showed Pi startup remained slow and the visible counter
+kept running while Mirror performed startup maintenance. The slow path is the
+conversation maintenance work, not the release check: session maintenance can
+close stale conversations, backfill Pi JSONL sessions, and extract pending
+conversations, which may call LLMs.
+
+Added a fast startup path for Pi: `conversation-logger session-start --fast`
+unmutes logging and returns immediately. The Pi extension now opens with the
+fast path, renders welcome/status, and starts `conversation-logger
+session-maintenance` in the background with per-step timing logged when it
+finishes. The original `session-start` command remains available for runtimes or
+manual use that want blocking maintenance.
+
+Validation: focused conversation logger tests passed; ruff lint and format
+checks passed; `node --check .pi/extensions/mirror-logger.ts` passed; `git diff
+--check` passed. Manual timing confirmed the blocking maintenance path can exceed
+120 seconds on the current personal Mirror, justifying the background split.
+
 ### 2026-05-25 — v0.10.2 release candidate prepared
 
 Prepared `v0.10.2 — Fresh Release Awareness` as a patch release candidate after

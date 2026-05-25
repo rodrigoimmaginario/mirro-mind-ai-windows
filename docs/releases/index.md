@@ -12,6 +12,7 @@ Future release notes should use the structure defined in [Release Notes](../proc
 
 ## Releases
 
+- [v0.10.3 — Pi Startup Maintenance](v0.10.3.md) — patch release that moves expensive Pi conversation maintenance out of the blocking startup path.
 - [v0.10.2 — Fresh Release Awareness](v0.10.2.md) — patch release that refreshes visible welcome update notices when stable advances again inside the cache window.
 - [v0.10.1 — Welcome Startup Clarity](v0.10.1.md) — patch release that clarifies Pi startup status and gives new-version availability stronger welcome emphasis.
 - [v0.10.0 — Web Visibility](v0.10.0.md) — closes CV9.E6 with read-only Identity and Workspace perspectives, object detail with Source Context, and a Pi Builder journey-association repair path.

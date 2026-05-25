@@ -55,7 +55,7 @@ class SurfaceService:
             tasks=tasks,
         )
         self.objects = ObjectDetailSurface(identity=identity, evidence=self.evidence)
-        self.search_surface = SearchSurface()
+        self.search_surface = SearchSurface(memories=memories)
 
     def atlas_home(self) -> AtlasHome:
         return self.atlas.home()
@@ -71,6 +71,9 @@ class SurfaceService:
 
     def search(self, query: str, perspective: str | None = None) -> SearchResults:
         return self.search_surface.search(query, perspective)
+
+    def memory_category(self, category_id: str) -> SearchResults:
+        return self.search_surface.memory_category(category_id)
 
 
 __all__ = [

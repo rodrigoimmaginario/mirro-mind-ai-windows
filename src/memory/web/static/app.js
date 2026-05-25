@@ -297,6 +297,47 @@ function workspaceCardDetail(card) {
   return values.map((value) => `<span>${escapeHtml(value)}</span>`).join('');
 }
 
+async function loadMemoryCategory(category, { updateHistory = true } = {}) {
+  activeView = 'memories';
+  if (docsPanel) docsPanel.hidden = true;
+  currentPath.hidden = true;
+  contentGrid.classList.remove('docs-active');
+  tabs.forEach((tab) => tab.classList.remove('active'));
+
+  const results = await fetchJson(`/api/surface/memories?category=${encodeURIComponent(category)}`);
+  content.innerHTML = renderMemoryCategoryPage(results);
+  if (updateHistory) {
+    window.history.pushState({ view: 'memory-category', category }, '', `#memories/${category}`);
+  }
+  window.scrollTo({ top: 0 });
+}
+
+function renderMemoryCategoryPage(results) {
+  const cards = (results.results || []).map(renderSearchResultCard).join('');
+  return `
+    <button type="button" class="text-link detail-back" data-back-view="atlas">← Back to Identity Map</button>
+    <section class="surface-intro surface-line memories-hero">
+      <p><strong>${escapeHtml(results.query)} memories:</strong> Recent retained context from this memory category.</p>
+    </section>
+    ${cards ? `<div class="workspace-list memory-result-list">${cards}</div>` : `<p class="empty-state">${escapeHtml(results.empty_state || 'No memories are available yet.')}</p>`}
+  `;
+}
+
+function renderSearchResultCard(result) {
+  const metadata = result.metadata || {};
+  const detail = [metadata.memory_type, metadata.layer, metadata.journey, metadata.persona].filter(Boolean);
+  return `
+    <article class="workspace-card">
+      <div class="workspace-card-icon" aria-hidden="true">◫</div>
+      <div>
+        <div class="card-meta">${escapeHtml(detail.join(' · ') || result.kind)}</div>
+        <h4>${escapeHtml(result.title)}</h4>
+        <p>${escapeHtml(result.description || '')}</p>
+      </div>
+    </article>
+  `;
+}
+
 async function loadObject(kind, id) {
   activeView = 'object';
   if (docsPanel) docsPanel.hidden = true;
@@ -469,16 +510,18 @@ function objectTargetFromHref(href) {
 }
 
 function renderMemoryCategory(card) {
-  const ratio = Math.max(0.04, Math.min(1, Number(card.metadata?.bar_ratio || 0)));
+  const category = String(card.id || '').replace(/^memory-category:/, '');
+  const count = Number(card.count ?? 0);
+  const countLabel = count === 1 ? '1 memory' : `${count} memories`;
   return `
-    <article class="memory-type">
-      <div class="memory-type-head">
+    <button type="button" class="memory-type" data-memory-category="${escapeHtml(category)}">
+      <span class="memory-type-head">
         <span class="memory-type-icon" aria-hidden="true">${escapeHtml(card.metadata?.icon || '◫')}</span>
         <span>${escapeHtml(card.title)}</span>
-        <strong>${escapeHtml(card.count ?? 0)}</strong>
-      </div>
-      <div class="memory-bar" aria-hidden="true"><span style="width: ${ratio * 100}%"></span></div>
-    </article>
+        <strong>${escapeHtml(countLabel)}</strong>
+      </span>
+      <span class="memory-intensity intensity-${escapeHtml(String(card.metadata?.intensity || 'Low').toLowerCase())}">${escapeHtml(card.metadata?.intensity || 'Low')} presence</span>
+    </button>
   `;
 }
 
@@ -662,6 +705,13 @@ content.addEventListener('click', async (event) => {
     return;
   }
 
+  const memoryCategoryTarget = event.target.closest('[data-memory-category]');
+  if (memoryCategoryTarget) {
+    event.preventDefault();
+    await loadMemoryCategory(memoryCategoryTarget.dataset.memoryCategory);
+    return;
+  }
+
   const backTarget = event.target.closest('[data-back-view]');
   if (backTarget) {
     event.preventDefault();
@@ -712,6 +762,21 @@ document.querySelectorAll('[data-home]').forEach((homeLink) => {
     await showView('workspace');
   });
 });
+
+window.addEventListener('popstate', async (event) => {
+  const state = event.state || {};
+  if (state.view === 'memory-category' && state.category) {
+    await loadMemoryCategory(state.category, { updateHistory: false });
+    return;
+  }
+  await showView(state.view || viewFromHash() || 'workspace', { updateHash: false });
+});
+
+function viewFromHash() {
+  const hash = window.location.hash.replace(/^#/, '');
+  if (['workspace', 'atlas', 'docs'].includes(hash)) return hash;
+  return null;
+}
 
 function showWorkspaceTab(tabId) {
   document.querySelectorAll('[data-workspace-tab]').forEach((tab) => {

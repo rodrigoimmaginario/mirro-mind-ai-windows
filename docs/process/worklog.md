@@ -12,6 +12,18 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-25 — CV13.E1.S3 memory category drilldown validated
+
+Completed the third CV13.E1 read-only refinement story. Identity memory category
+cards now open a read-only category page backed by surface DTOs, showing recent
+memories from the selected category with an honest empty state. The visual cue
+uses count plus a low/medium/high presence chip rather than a progress bar, so
+volume is represented without implying completion.
+
+Validation: focused search/surface and web tests passed, `node --check` passed,
+`git diff --check` passed, and Navigator browser validation accepted category
+navigation, browser back behavior, and the presence chip treatment.
+
 ### 2026-05-25 — CV13.E1.S2 three-letter persona tokens validated
 
 Completed the second CV13.E1 read-only refinement story. Persona tokens in the

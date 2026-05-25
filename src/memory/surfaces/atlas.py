@@ -187,7 +187,7 @@ def _memory_category_cards(
             metadata={
                 "icon": _memory_category_icon(label),
                 "icon_kind": "glyph",
-                "bar_ratio": count / max_count,
+                "intensity": _memory_category_intensity(count / max_count),
             },
         )
         for label, count in visible
@@ -212,6 +212,14 @@ def _memory_category(raw_type: str) -> str:
         "commitment": "Commitments",
         "info": "Info",
     }.get(normalized, _humanize_key(normalized) if normalized else "Other")
+
+
+def _memory_category_intensity(ratio: float) -> str:
+    if ratio >= 0.75:
+        return "High"
+    if ratio >= 0.35:
+        return "Medium"
+    return "Low"
 
 
 def _memory_category_icon(label: str) -> str:

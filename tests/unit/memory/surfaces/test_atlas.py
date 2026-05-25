@@ -52,6 +52,7 @@ def test_atlas_home_surfaces_real_identity_and_personas(
         "Journeys": 1,
     }
     assert all(card.kind == "memory-category" for card in memories_region.cards)
+    assert all(card.metadata["intensity"] == "High" for card in memories_region.cards)
     assert ego_region.empty_state is None
     assert ego_region.cards[0].id == "ego"
     assert ego_region.cards[0].kind == "identity"

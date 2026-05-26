@@ -98,9 +98,75 @@ def test_operations_catalog_api_exposes_read_only_allowlist(tmp_path: Path) -> N
         "conversation-logger-health",
         "batch-conversation-retitle",
     ]
-    assert all(operation["execution"] == "future" for operation in payload)
+    assert payload[0]["execution"] == "runnable"
+    assert all(operation["execution"] == "future" for operation in payload[1:])
     assert payload[2]["dryRun"] == "required"
     assert payload[2]["parameters"][0]["name"] == "limit"
+
+
+def test_operations_run_api_executes_runtime_health_only(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    mirror_home.mkdir()
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/operations/run",
+            {"operationId": "runtime-health"},
+        )
+    finally:
+        server.close()
+
+    assert status == 200
+    assert payload["operationId"] == "runtime-health"
+    assert payload["status"] == "completed"
+    assert payload["outcome"] == "attention needed"
+    assert payload["result"]["mirrorHome"] == str(mirror_home.resolve())
+    assert payload["result"]["database"]["exists"] is False
+
+
+def test_operations_run_api_rejects_unknown_and_command_like_requests(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/operations/run",
+            {"operationId": "unsafe-shell", "command": "echo unsafe"},
+        )
+    finally:
+        server.close()
+
+    assert status == 400
+    assert "Unsupported operation request fields" in payload["error"]
+
+
+def test_operations_run_api_rejects_future_operations(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/operations/run",
+            {"operationId": "database-backup"},
+        )
+    finally:
+        server.close()
+
+    assert status == 400
+    assert "not runnable yet" in payload["error"]
 
 
 def test_operations_execute_api_does_not_exist(tmp_path: Path) -> None:

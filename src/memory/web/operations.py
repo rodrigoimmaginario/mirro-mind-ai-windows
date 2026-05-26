@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
+
+from memory.cli.runtime import RuntimeStatusReport, build_runtime_status
 
 ParameterType = Literal["string", "integer", "boolean", "choice"]
 RiskLevel = Literal["read_only", "writes_backup", "writes_database", "external_llm"]
 DryRunMode = Literal["unsupported", "supported", "required"]
-ExecutionState = Literal["catalog_only", "future"]
+ExecutionState = Literal["catalog_only", "future", "runnable"]
 
 
 @dataclass(frozen=True)
@@ -78,7 +81,7 @@ OPERATION_CATALOG: tuple[WebOperation, ...] = (
         category="runtime",
         risk_level="read_only",
         dry_run="unsupported",
-        execution="future",
+        execution="runnable",
     ),
     WebOperation(
         id="database-backup",
@@ -161,3 +164,103 @@ def operation_catalog() -> list[dict[str, object]]:
     """Return the serialized server-owned operation catalog."""
 
     return [operation.to_dict() for operation in OPERATION_CATALOG]
+
+
+def run_operation(
+    operation_id: str, *, mirror_home: Path | None = None, start: Path | None = None
+) -> dict[str, object]:
+    """Run one implemented allowlisted operation and return web-safe results."""
+
+    operation = _operation_by_id(operation_id)
+    if operation is None:
+        raise ValueError(f"Unknown operation: {operation_id}")
+    if operation.execution != "runnable":
+        raise ValueError(f"Operation is not runnable yet: {operation_id}")
+    if operation.id != "runtime-health":
+        raise ValueError(f"Operation is not implemented yet: {operation_id}")
+
+    report = build_runtime_status(start=start, mirror_home_arg=mirror_home)
+    return {
+        "operationId": operation.id,
+        "status": "completed",
+        "outcome": report.status,
+        "summary": _runtime_health_summary(report),
+        "result": _runtime_status_payload(report),
+    }
+
+
+def _operation_by_id(operation_id: str) -> WebOperation | None:
+    return next(
+        (operation for operation in OPERATION_CATALOG if operation.id == operation_id), None
+    )
+
+
+def _runtime_health_summary(report: RuntimeStatusReport) -> list[str]:
+    summary = [f"Runtime status: {report.status}", f"Version: {report.version}"]
+    if report.git.branch:
+        summary.append(f"Git branch: {report.git.branch}")
+    if report.mirror_home:
+        summary.append(f"Mirror home: {report.mirror_home}")
+    if report.mirror_home_error:
+        summary.append(f"Mirror home note: {report.mirror_home_error}")
+    if report.db_exists is False:
+        summary.append("Database: missing")
+    elif report.db_exists is True:
+        summary.append("Database: present")
+    return summary
+
+
+def _runtime_status_payload(report: RuntimeStatusReport) -> dict[str, object]:
+    return {
+        "status": report.status,
+        "version": report.version,
+        "repository": _path_or_none(report.git.repository),
+        "git": {
+            "branch": report.git.branch,
+            "commit": report.git.commit,
+            "dirty": report.git.dirty,
+            "error": report.git.error,
+        },
+        "mirrorHome": _path_or_none(report.mirror_home),
+        "mirrorHomeError": report.mirror_home_error,
+        "database": {
+            "path": _path_or_none(report.db_path),
+            "exists": report.db_exists,
+        },
+        "coreMigrations": {
+            "ready": report.core_migrations.ready,
+            "appliedCount": report.core_migrations.applied_count,
+            "knownCount": report.core_migrations.known_count,
+            "missing": list(report.core_migrations.missing),
+            "unknown": list(report.core_migrations.unknown),
+            "note": report.core_migrations.note,
+        },
+        "extensions": list(report.extensions),
+        "extensionHealth": [
+            {
+                "extensionId": health.extension_id,
+                "ready": health.ready,
+                "note": health.note,
+                "pendingMigrations": list(health.pending_migrations),
+                "driftedMigrations": list(health.drifted_migrations),
+                "unknownMigrations": list(health.unknown_migrations),
+            }
+            for health in report.extension_health
+        ],
+        "cloneRole": {
+            "value": report.clone_role.value,
+            "source": _path_or_none(report.clone_role.source),
+            "note": report.clone_role.note,
+        },
+        "pythonVersion": report.python_version,
+        "memoryEnv": report.memory_env,
+        "updateChannel": {
+            "value": report.update_channel.value,
+            "source": _path_or_none(report.update_channel.source),
+            "note": report.update_channel.note,
+        },
+    }
+
+
+def _path_or_none(path: Path | None) -> str | None:
+    return str(path) if path is not None else None

@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-26 — CV13.E5.S2 runtime health operation validated
+
+Added the first runnable Web Operations Runner operation. `runtime-health` now appears as runnable in the catalog, and `POST /api/operations/run` executes only that read-only operation through direct Python runtime inspection. Unknown operations, future operations, command-like request fields, and parameters for runtime health are rejected. The response returns structured runtime status data for version, git, Mirror home, database, migrations, extensions, clone role, Python version, environment, and update channel. Explicit `mirror_home` status inspection now overrides ambient environment selection so the web operation follows the selected Mirror.
+
+Validation: focused web tests passed, ruff checks passed, `node --check` passed, and `git diff --check` passed. Manual validation was waived for this API-only story under the current instruction to stop only for surface validation.
+
 ### 2026-05-26 — CV13.E5.S1 operation registry and dry-run contract validated
 
 Started the `v0.15.0 — Web Operations Runner` slice with a server-owned, read-only operation catalog. The web API now exposes `GET /api/operations/catalog` with allowlisted maintenance operation metadata, risk level, dry-run behavior, execution availability, and declarative parameters. No operation execution endpoint, subprocess hook, shell command, raw SQL, git mutation, runtime update, or `.env` mutation was added.

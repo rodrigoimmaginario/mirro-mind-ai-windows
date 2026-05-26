@@ -15,7 +15,7 @@ from memory.config import resolve_mirror_home
 from memory.web.configuration import build_configuration_overview
 from memory.web.docs import DocsBrowser
 from memory.web.mirrors import MirrorRegistry
-from memory.web.operations import operation_catalog
+from memory.web.operations import operation_catalog, run_operation
 from memory.web.preferences import DEFAULT_AVATAR_SYMBOL, VALID_PERSPECTIVES, WebPreferenceStore
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -139,6 +139,9 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/conversations/title-suggestion":
             self._suggest_conversation_title()
             return
+        if parsed.path == "/api/operations/run":
+            self._run_operation()
+            return
         self._send_json({"error": "Not found"}, status=404)
 
     def log_message(self, format: str, *args: object) -> None:
@@ -146,6 +149,34 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
 
     def _mirrors(self) -> MirrorRegistry:
         return MirrorRegistry(self.__class__.mirror_home)
+
+    def _run_operation(self) -> None:
+        try:
+            payload = self._read_json_body()
+            allowed_keys = {"operationId", "parameters"}
+            extra_keys = set(payload) - allowed_keys
+            if extra_keys:
+                raise ValueError(
+                    f"Unsupported operation request fields: {', '.join(sorted(extra_keys))}"
+                )
+            operation_id = payload.get("operationId")
+            if not isinstance(operation_id, str) or not operation_id:
+                raise ValueError("operationId is required")
+            parameters = payload.get("parameters", {})
+            if not isinstance(parameters, dict):
+                raise ValueError("parameters must be an object")
+            if parameters:
+                raise ValueError("runtime-health does not accept parameters")
+            result = run_operation(
+                operation_id,
+                mirror_home=self.__class__.mirror_home,
+                start=self.browser.root,
+            )
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            self._send_json({"error": str(exc)}, status=400)
+            return
+
+        self._send_json(result)
 
     def _preferences(self) -> WebPreferenceStore:
         return WebPreferenceStore(self.__class__.mirror_home)

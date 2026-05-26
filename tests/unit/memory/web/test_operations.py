@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from memory.web.operations import OPERATION_CATALOG, operation_catalog
+from pathlib import Path
+
+import pytest
+
+from memory.web.operations import OPERATION_CATALOG, operation_catalog, run_operation
 
 
 def test_operation_catalog_exposes_stable_allowlisted_operations() -> None:
@@ -13,7 +17,13 @@ def test_operation_catalog_exposes_stable_allowlisted_operations() -> None:
         "conversation-logger-health",
         "batch-conversation-retitle",
     ]
-    assert all(operation["execution"] == "future" for operation in payload)
+    operations = {operation["id"]: operation for operation in payload}
+    assert operations["runtime-health"]["execution"] == "runnable"
+    assert all(
+        operation["execution"] == "future"
+        for operation in payload
+        if operation["id"] != "runtime-health"
+    )
 
 
 def test_operation_catalog_declares_risk_and_dry_run_boundaries() -> None:
@@ -69,3 +79,27 @@ def test_operation_catalog_is_server_owned_not_request_mutable() -> None:
 
     assert len(operation_catalog()) == len(OPERATION_CATALOG)
     assert "unsafe-shell" not in {operation["id"] for operation in operation_catalog()}
+
+
+def test_run_operation_executes_runtime_health_read_only(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    mirror_home.mkdir()
+
+    result = run_operation("runtime-health", mirror_home=mirror_home, start=tmp_path)
+
+    assert result["operationId"] == "runtime-health"
+    assert result["status"] == "completed"
+    assert result["outcome"] == "attention needed"
+    assert result["result"]["mirrorHome"] == str(mirror_home)
+    assert result["result"]["database"]["exists"] is False
+    assert "Runtime status: attention needed" in result["summary"]
+
+
+def test_run_operation_rejects_unknown_operation(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Unknown operation"):
+        run_operation("unsafe-shell", mirror_home=tmp_path / "mirror-home", start=tmp_path)
+
+
+def test_run_operation_rejects_future_operation(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="not runnable yet"):
+        run_operation("database-backup", mirror_home=tmp_path / "mirror-home", start=tmp_path)

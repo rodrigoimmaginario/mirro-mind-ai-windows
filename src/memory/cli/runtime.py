@@ -954,7 +954,10 @@ def build_runtime_status(
     mirror_home: Path | None = None
     mirror_home_error: str | None = None
     try:
-        mirror_home = resolve_mirror_home(mirror_home=mirror_home_arg)
+        if mirror_home_arg is not None:
+            mirror_home = Path(mirror_home_arg).expanduser().resolve()
+        else:
+            mirror_home = resolve_mirror_home()
     except ValueError as exc:
         mirror_home_error = str(exc)
 

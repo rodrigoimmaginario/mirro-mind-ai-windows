@@ -12,6 +12,14 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-25 — v0.14.0 release candidate prepared
+
+Prepared `v0.14.0 — Conversation Intelligence` as the minor release candidate for
+CV13.E4. The release packages readable conversation transcripts, Workspace card
+navigation, manual title editing, explicit OpenRouter title suggestions,
+configuration reference links, compact configuration icons, Workspace visual
+refinements, and read-only journey attachment visibility.
+
 ### 2026-05-25 — CV13.E4.S6 journey attachments visibility validated
 
 Added read-only journey attachment visibility to Workspace. The selected journey

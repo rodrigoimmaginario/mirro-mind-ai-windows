@@ -29,7 +29,7 @@ folder and index. Stories that are non-trivial have a `plan.md` and a
 | [CV10](cv10-coherence-engine/index.md) | Coherence Engine | 🟡 Planned |
 | [CV11](cv11-localization/index.md) | Localization | ⚪ Future |
 | [CV12](cv12-audience-modes/index.md) | Audience Modes | ⚪ Future |
-| [CV13](cv13-mirror-web-console/index.md) | Mirror Web Experience | 🟡 Planned |
+| [CV13](cv13-mirror-web-console/index.md) | Mirror Web Experience | ✅ Done |
 | [CV14](cv14-stateful-extensions/index.md) | Stateful Extension System | 🟢 E1–E2 Done · E3–E4 provisional |
 
 ---
@@ -69,12 +69,13 @@ the [CV12 index](cv12-audience-modes/index.md).
 
 ## CV13 — Mirror Web Experience
 
-Planned. CV13 is the post-1.0 web arc for Mirror Mind. CV9.E6 shipped the local
-read-only visibility foundation; CV13 evolves it into a fuller local web
-experience through staged minor releases: read-only refinement, multi-Mirror
+Done. CV13 evolved the post-1.0 web arc from read-only visibility into a fuller
+local web experience through staged releases: read-only refinement, multi-Mirror
 selection and preferences, configuration surfaces, conversation intelligence,
-allowlisted web operations, and eventually a controlled agentic web console. See
-the [CV13 index](cv13-mirror-web-console/index.md).
+allowlisted web operations, asynchronous operation runs, event timelines,
+controlled command execution, cooperative cancellation, approval checkpoints,
+and a bounded read-only agent-run prototype with a polished run console. See the
+[CV13 index](cv13-mirror-web-console/index.md).
 
 ## CV3 — Pi Skill Parity
 

@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-26 — CV13 final roadmap coherence pass completed
+
+Reconciled CV13 status after the completed E1–E6 web arc. The roadmap root and CV13 index now mark Mirror Web Experience done, with CV13 described as the staged progression from read-only visibility through preferences, configuration, conversation intelligence, operations, asynchronous runs, controlled command execution, cancellation, approvals, and the bounded agent-run prototype. Release readiness remains a separate next step: package version and release notes are not yet prepared for the next published version.
+
+Validation: focused web/service/migration tests passed, ruff checks passed, `node --check` passed for the web app, `git diff --check` passed, and release doctor intentionally surfaced the expected pre-release gaps for `v0.16.0`.
+
 ### 2026-05-26 — CV13.E6.S7 run console surface polish validated
 
 Refined the Operations experience from inline audit cards into a dedicated run console. Starting an operation now opens a dominant shell-like console surface with polled lifecycle output, command/agent evidence, side cards for operation metadata and run actions, approval/cancel affordances, and a disabled future-agent input panel for the agent prototype. The copy remains honest that this is polled durable run state rather than true SSE/WebSocket streaming.

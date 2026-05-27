@@ -2,7 +2,7 @@
 
 # CV13 — Mirror Web Experience
 
-**Status:** 🟢 In Progress
+**Status:** ✅ Done
 **Goal:** Evolve Mirror's local web surface from 1.0 read-only visibility into a coherent local experience for inspecting Mirrors, refining workspace/identity views, managing preferences and configuration, improving conversation data, and preparing safe streamed operations.
 
 ---

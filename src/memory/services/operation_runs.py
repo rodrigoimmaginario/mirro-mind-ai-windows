@@ -154,6 +154,31 @@ class OperationRunService:
         self.store.conn.commit()
         return self.get(run_id)
 
+    def require_approval(self, run_id: str, *, reason: str) -> OperationRun:
+        self.store.conn.execute(
+            "UPDATE operation_runs SET status = ? WHERE id = ?",
+            ("approval_required", run_id),
+        )
+        self._record_event(
+            run_id,
+            kind="approval_required",
+            message=reason,
+        )
+        self.store.conn.commit()
+        return self.get(run_id)
+
+    def approve(self, run_id: str) -> OperationRun:
+        run = self.get(run_id)
+        if run.status != "approval_required":
+            raise ValueError(f"Operation run does not require approval: {run.status}")
+        self.store.conn.execute(
+            "UPDATE operation_runs SET status = ? WHERE id = ?",
+            ("queued", run_id),
+        )
+        self._record_event(run_id, kind="approved", message="Operation approved.")
+        self.store.conn.commit()
+        return self.get(run_id)
+
     def request_cancel(self, run_id: str) -> OperationRun:
         run = self.get(run_id)
         if run.status in {"completed", "failed", "cancelled"}:

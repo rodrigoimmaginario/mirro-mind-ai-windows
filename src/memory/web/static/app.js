@@ -482,7 +482,8 @@ function renderRawEvidence(result) {
 }
 
 function renderOperationRun(run) {
-  const cancellable = ['queued', 'running', 'cancellation_requested'].includes(run.status);
+  const cancellable = ['queued', 'running', 'cancellation_requested', 'approval_required'].includes(run.status);
+  const approvable = run.status === 'approval_required';
   return `
     <article class="operation-run status-${escapeHtml(runStatusTone(run))}">
       <span class="operation-run-dot" aria-hidden="true"></span>
@@ -492,6 +493,7 @@ function renderOperationRun(run) {
           <em>${escapeHtml(run.outcome || run.status)}</em>
         </div>
         <small>${escapeHtml(formatDateTime(run.startedAt))}</small>
+        ${approvable ? `<button type="button" class="secondary-action" data-operation-approve="${escapeHtml(run.id)}">Approve</button>` : ''}
         ${cancellable ? `<button type="button" class="secondary-action" data-operation-cancel="${escapeHtml(run.id)}">Request cancel</button>` : ''}
       </div>
     </article>
@@ -500,7 +502,7 @@ function renderOperationRun(run) {
 
 function runStatusTone(run) {
   if (run.status === 'failed') return 'failed';
-  if (['queued', 'running', 'cancellation_requested', 'cancelled'].includes(run.status)) return 'attention';
+  if (['queued', 'running', 'cancellation_requested', 'cancelled', 'approval_required'].includes(run.status)) return 'attention';
   if (String(run.outcome || '').includes('attention') || String(run.outcome || '').includes('dry_run')) return 'attention';
   return 'completed';
 }
@@ -1614,6 +1616,19 @@ content.addEventListener('submit', async (event) => {
     showWarning('Journey settings saved.');
     await showView('workspace', { updateHash: false });
     showWorkspaceTab('settings');
+    return;
+  }
+
+  const operationApprove = event.target.closest('[data-operation-approve]');
+  if (operationApprove) {
+    event.preventDefault();
+    try {
+      await fetchJson(`/api/operations/runs/${encodeURIComponent(operationApprove.dataset.operationApprove)}/approve`, { method: 'POST' });
+      showWarning('Operation approved.');
+      await renderOperations(null, null);
+    } catch (error) {
+      showWarning(String(error.message || error));
+    }
     return;
   }
 

@@ -192,6 +192,47 @@ def test_operations_run_api_executes_runtime_diagnose_through_controlled_command
     assert completed["events"][-1]["kind"] == "completed"
 
 
+def test_operations_run_api_requires_approval_before_conversation_repair_apply(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        mem.identity.set_identity("journey", "mirror-mind", "# Mirror Mind\n**Status:** active")
+        conversation = mem.conversations.start_conversation(interface="pi", title="Builder")
+        mem.conversations.add_message(conversation.id, "user", "$mm-build mirror-mind")
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/operations/run",
+            {
+                "operationId": "conversation-journey-repair",
+                "parameters": {"dryRun": False, "limit": 10},
+            },
+        )
+        approve_status, approved = server.request(
+            "POST", f"/api/operations/runs/{payload['runId']}/approve"
+        )
+        completed = wait_for_run(server, payload["runId"])
+    finally:
+        server.close()
+
+    assert status == 202
+    assert payload["status"] == "approval_required"
+    assert approve_status == 200
+    assert approved["status"] == "queued"
+    assert completed["outcome"] == "repaired"
+    assert [event["kind"] for event in completed["events"]][:3] == [
+        "queued",
+        "approval_required",
+        "approved",
+    ]
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        assert mem.store.get_conversation(conversation.id).journey == "mirror-mind"
+
+
 def test_operations_run_cancel_api_rejects_terminal_runs(tmp_path: Path) -> None:
     mirror_home = tmp_path / "mirror-home"
     mirror_home.mkdir()

@@ -49,6 +49,21 @@ def test_operation_run_service_records_queued_and_running_states(tmp_path):
     assert [event.kind for event in running.events] == ["queued", "running"]
 
 
+def test_operation_run_service_records_approval_checkpoint(tmp_path):
+    with MemoryClient(db_path=tmp_path / "memory.db") as mem:
+        queued = mem.operation_runs.queue("conversation-journey-repair", {"dryRun": False})
+        required = mem.operation_runs.require_approval(queued.id, reason="Approval required.")
+        approved = mem.operation_runs.approve(queued.id)
+
+    assert required.status == "approval_required"
+    assert approved.status == "queued"
+    assert [event.kind for event in approved.events] == [
+        "queued",
+        "approval_required",
+        "approved",
+    ]
+
+
 def test_operation_run_service_records_cancellation_request_and_cancelled(tmp_path):
     with MemoryClient(db_path=tmp_path / "memory.db") as mem:
         queued = mem.operation_runs.queue("runtime-health", {})

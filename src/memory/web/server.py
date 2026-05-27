@@ -171,6 +171,10 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
             run_id = parsed.path.removeprefix("/api/operations/runs/").removesuffix("/cancel")
             self._cancel_operation_run(run_id)
             return
+        if parsed.path.startswith("/api/operations/runs/") and parsed.path.endswith("/approve"):
+            run_id = parsed.path.removeprefix("/api/operations/runs/").removesuffix("/approve")
+            self._approve_operation_run(run_id)
+            return
         self._send_json({"error": "Not found"}, status=404)
 
     def log_message(self, format: str, *args: object) -> None:
@@ -197,7 +201,13 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
             parsed_parameters = validate_operation_request(operation_id, parameters)
             with MemoryClient(db_path=self._db_path()) as mem:
                 run = mem.operation_runs.queue(operation_id, parsed_parameters)
-            self._start_operation_worker(run.id, operation_id, parsed_parameters)
+                if _operation_requires_approval(operation_id, parsed_parameters):
+                    run = mem.operation_runs.require_approval(
+                        run.id,
+                        reason="Approval required before persistent changes.",
+                    )
+                else:
+                    self._start_operation_worker(run.id, operation_id, parsed_parameters)
         except (json.JSONDecodeError, ValueError, TypeError) as exc:
             self._send_json({"error": str(exc)}, status=400)
             return
@@ -213,6 +223,18 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
             },
             status=202,
         )
+
+    def _approve_operation_run(self, run_id: str) -> None:
+        try:
+            if not run_id:
+                raise ValueError("Operation run id is required")
+            with MemoryClient(db_path=self._db_path()) as mem:
+                run = mem.operation_runs.approve(run_id)
+            self._start_operation_worker(run.id, run.operation_id, run.parameters)
+        except ValueError as exc:
+            self._send_json({"error": str(exc)}, status=400)
+            return
+        self._send_json(run.to_dict())
 
     def _cancel_operation_run(self, run_id: str) -> None:
         try:
@@ -474,6 +496,10 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+
+def _operation_requires_approval(operation_id: str, parameters: dict[str, object]) -> bool:
+    return operation_id == "conversation-journey-repair" and parameters.get("dryRun") is False
 
 
 def _execute_operation_run(

@@ -16,7 +16,7 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 Prepared `v0.16.2 — Runtime Update Validation Stub` as a minimal stable release after v0.16.1. The release intentionally contains no functional runtime change; it exists to validate the corrected updater installed in production by v0.16.1 executing a normal update to a newer stable release.
 
-Validation: pending release-note smoke, release doctor, promotion, and production update validation.
+Validation: release-note smoke passed, focused runtime tests and ruff checks passed, release doctor was ready with expected pre-promotion warnings, promotion created and pushed tag/stable for `v0.16.2`, and production updated successfully from `0.16.1` to `0.16.2` using the corrected updater with backup `memory_20260527_185039.zip`, fast-forward `b23d869 -> 2c7c3cd`, post-update status ready, and update check reporting `up_to_date`.
 
 ### 2026-05-27 — v0.16.1 release candidate prepared
 

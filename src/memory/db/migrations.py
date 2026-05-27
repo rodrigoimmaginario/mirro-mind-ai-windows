@@ -338,6 +338,27 @@ def _migrate_create_operation_runs(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_create_operation_run_events(conn: sqlite3.Connection) -> None:
+    """Create durable lifecycle events for asynchronous web operation runs."""
+    if _table_exists(conn, "operation_run_events"):
+        return
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS operation_run_events (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL REFERENCES operation_runs(id) ON DELETE CASCADE,
+            sequence INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            message TEXT NOT NULL,
+            details_json TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_operation_run_events_run
+            ON operation_run_events(run_id, sequence);
+        """
+    )
+
+
 MigrationApply = Callable[[sqlite3.Connection], None]
 
 
@@ -353,6 +374,7 @@ MIGRATIONS: list[tuple[str, MigrationApply]] = [
     ("009_memories_reinforcement_columns", _migrate_memories_reinforcement_columns),
     ("010_create_consolidations", _migrate_create_consolidations),
     ("011_create_operation_runs", _migrate_create_operation_runs),
+    ("012_create_operation_run_events", _migrate_create_operation_run_events),
 ]
 
 

@@ -146,6 +146,11 @@ def test_operations_run_api_executes_runtime_health_only(tmp_path: Path) -> None
     assert completed["outcome"] == "attention needed"
     assert completed["result"]["mirrorHome"] == str(mirror_home.resolve())
     assert completed["result"]["database"]["exists"] is True
+    assert [event["kind"] for event in completed["events"]] == [
+        "queued",
+        "running",
+        "completed",
+    ]
 
     assert runs_status == 200
     assert runs[0]["id"] == payload["runId"]
@@ -200,6 +205,7 @@ def test_operations_run_api_executes_database_backup(tmp_path: Path) -> None:
     assert backup_path.parent == mirror_home.resolve() / "backups"
     assert completed["result"]["verification"]["valid"] is True
     assert "memory.db" in completed["result"]["verification"]["entries"]
+    assert completed["events"][-1]["kind"] == "completed"
 
 
 def test_operations_run_api_records_known_operation_failures(tmp_path: Path) -> None:
@@ -278,6 +284,7 @@ def test_operations_run_api_dry_runs_conversation_journey_repair(tmp_path: Path)
     assert completed["result"]["candidateCount"] == 1
     assert completed["result"]["appliedCount"] == 0
     assert completed["result"]["candidates"][0]["journey"] == "mirror-mind"
+    assert completed["events"][-1]["details"]["outcome"] == "dry_run"
     with MemoryClient(db_path=mirror_home / "memory.db") as mem:
         assert mem.store.get_conversation(conversation.id).journey is None
 

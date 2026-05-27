@@ -12,6 +12,28 @@ from memory.storage.store import Store
 
 
 @dataclass(frozen=True)
+class OperationRunEvent:
+    id: str
+    run_id: str
+    sequence: int
+    kind: str
+    message: str
+    details: dict[str, Any]
+    created_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "runId": self.run_id,
+            "sequence": self.sequence,
+            "kind": self.kind,
+            "message": self.message,
+            "details": self.details,
+            "createdAt": self.created_at,
+        }
+
+
+@dataclass(frozen=True)
 class OperationRun:
     id: str
     operation_id: str
@@ -24,6 +46,7 @@ class OperationRun:
     started_at: str
     completed_at: str | None
     created_at: str
+    events: list[OperationRunEvent] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +61,7 @@ class OperationRun:
             "startedAt": self.started_at,
             "completedAt": self.completed_at,
             "createdAt": self.created_at,
+            "events": [event.to_dict() for event in self.events or []],
         }
 
 
@@ -58,6 +82,12 @@ class OperationRunService:
             """,
             (run_id, operation_id, status, _json(parameters), timestamp, timestamp),
         )
+        self._record_event(
+            run_id,
+            kind=status,
+            message=f"Operation {status}.",
+            details={"operationId": operation_id},
+        )
         self.store.conn.commit()
         return self.get(run_id)
 
@@ -74,6 +104,7 @@ class OperationRunService:
             """,
             ("running", timestamp, run_id),
         )
+        self._record_event(run_id, kind="running", message="Operation started.")
         self.store.conn.commit()
         return self.get(run_id)
 
@@ -95,6 +126,12 @@ class OperationRunService:
             """,
             ("completed", outcome, _json(summary), _json(result), timestamp, run_id),
         )
+        self._record_event(
+            run_id,
+            kind="completed",
+            message="Operation completed.",
+            details={"outcome": outcome, "summary": summary},
+        )
         self.store.conn.commit()
         return self.get(run_id)
 
@@ -108,6 +145,12 @@ class OperationRunService:
             """,
             ("failed", error, timestamp, run_id),
         )
+        self._record_event(
+            run_id,
+            kind="failed",
+            message="Operation failed.",
+            details={"error": error},
+        )
         self.store.conn.commit()
         return self.get(run_id)
 
@@ -117,7 +160,48 @@ class OperationRunService:
         ).fetchone()
         if row is None:
             raise ValueError(f"Operation run not found: {run_id}")
-        return _row_to_run(row)
+        return _row_to_run(row, events=self.events(run_id))
+
+    def events(self, run_id: str) -> list[OperationRunEvent]:
+        rows = self.store.conn.execute(
+            """
+            SELECT * FROM operation_run_events
+             WHERE run_id = ?
+             ORDER BY sequence ASC, created_at ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [_row_to_event(row) for row in rows]
+
+    def _record_event(
+        self,
+        run_id: str,
+        *,
+        kind: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        row = self.store.conn.execute(
+            "SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM operation_run_events WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+        sequence = int(row["next_sequence"] if row is not None else 1)
+        self.store.conn.execute(
+            """
+            INSERT INTO operation_run_events (
+                id, run_id, sequence, kind, message, details_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                run_id,
+                sequence,
+                kind,
+                message,
+                _json(details or {}),
+                _now(),
+            ),
+        )
 
     def recent(self, limit: int = 20) -> list[OperationRun]:
         bounded_limit = max(1, min(limit, 100))
@@ -132,7 +216,7 @@ class OperationRunService:
         return [_row_to_run(row) for row in rows]
 
 
-def _row_to_run(row: Any) -> OperationRun:
+def _row_to_run(row: Any, *, events: list[OperationRunEvent] | None = None) -> OperationRun:
     return OperationRun(
         id=row["id"],
         operation_id=row["operation_id"],
@@ -144,6 +228,19 @@ def _row_to_run(row: Any) -> OperationRun:
         error=row["error"],
         started_at=row["started_at"],
         completed_at=row["completed_at"],
+        created_at=row["created_at"],
+        events=events,
+    )
+
+
+def _row_to_event(row: Any) -> OperationRunEvent:
+    return OperationRunEvent(
+        id=row["id"],
+        run_id=row["run_id"],
+        sequence=int(row["sequence"]),
+        kind=row["kind"],
+        message=row["message"],
+        details=_json_loads(row["details_json"], default={}),
         created_at=row["created_at"],
     )
 

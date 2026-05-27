@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-26 — CV13.E6.S2 operation event log and timeline validated
+
+Added durable lifecycle events for asynchronous web operation runs. The core schema and migration now include `operation_run_events`; `OperationRunService` records queued, running, completed, and failed events; single-run inspection returns events in sequence; and the Operations UI renders a compact run timeline beside final result evidence. Polling remains the delivery mechanism, with no SSE/WebSocket, cancellation, approval checkpoint, command executor, Pi/headless agent integration, arbitrary shell command, SQL, git, or runtime update surface introduced.
+
+Validation: focused web/service/migration tests passed, ruff checks passed, `node --check` passed for the web app, and `git diff --check` passed.
+
 ### 2026-05-26 — CV13.E6.S1 async operation run model validated
 
 Started the Agentic Web Console arc by moving web operation execution out of the original request path. `POST /api/operations/run` now validates allowlisted operation input, creates a queued durable run, returns a run id immediately, and executes the existing operation implementation in a local background worker. Operation runs now support queued and running states, one-run inspection is available at `/api/operations/runs/<id>`, invalid parameters are rejected before run creation, and the Operations UI polls active runs before showing final evidence. No arbitrary shell command, user-supplied command string, Pi/headless agent integration, approval checkpoint, or runtime mutation path was introduced.

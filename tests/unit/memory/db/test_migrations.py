@@ -139,3 +139,22 @@ class TestRunMigrations:
             "completed_at",
             "created_at",
         }.issubset(cols)
+
+    def test_operation_run_events_table_created_by_migration_012(self):
+        conn = _fresh_conn()
+        run_migrations(conn)
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(operation_run_events)")}
+
+        assert "operation_run_events" in tables
+        assert {
+            "id",
+            "run_id",
+            "sequence",
+            "kind",
+            "message",
+            "details_json",
+            "created_at",
+        }.issubset(cols)

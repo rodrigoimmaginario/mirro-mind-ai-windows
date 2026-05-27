@@ -218,6 +218,19 @@ CREATE INDEX IF NOT EXISTS idx_operation_runs_operation ON operation_runs(operat
 CREATE INDEX IF NOT EXISTS idx_operation_runs_started ON operation_runs(started_at);
 CREATE INDEX IF NOT EXISTS idx_operation_runs_status ON operation_runs(status);
 
+CREATE TABLE IF NOT EXISTS operation_run_events (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES operation_runs(id) ON DELETE CASCADE,
+    sequence INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    message TEXT NOT NULL,
+    details_json TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_operation_run_events_run
+    ON operation_run_events(run_id, sequence);
+
 -- Extension subsystem bookkeeping.
 --
 -- _ext_migrations tracks which SQL migration files have been applied per

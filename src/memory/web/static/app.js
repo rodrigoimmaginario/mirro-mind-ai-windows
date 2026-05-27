@@ -350,9 +350,27 @@ function renderOperationResult(result) {
       ${result.runId ? `<p>Run id: <code>${escapeHtml(result.runId)}</code></p>` : ''}
       ${result.error ? `<p>${escapeHtml(result.error)}</p>` : ''}
       ${summary ? `<ul>${summary}</ul>` : ''}
+      ${renderOperationTimeline(result.events || [])}
       ${renderOperationResultCards(result)}
       ${renderRawEvidence(result.result)}
     </section>
+  `;
+}
+
+function renderOperationTimeline(events) {
+  if (!events.length) return '';
+  const items = events.map((event) => `
+    <li>
+      <strong>${escapeHtml(event.kind || 'event')}</strong>
+      <span>${escapeHtml(event.message || '')}</span>
+      <small>${escapeHtml(formatDateTime(event.createdAt))}</small>
+    </li>
+  `).join('');
+  return `
+    <div class="operation-evidence-list">
+      <strong>Run timeline</strong>
+      <ul>${items}</ul>
+    </div>
   `;
 }
 
@@ -1604,6 +1622,7 @@ content.addEventListener('submit', async (event) => {
         summary: completed.summary || started.summary,
         result: completed.result || started.result,
         error: completed.error || started.error,
+        events: completed.events || started.events || [],
       } : started;
       showWarning(result.status === 'completed' ? 'Operation completed.' : 'Operation still running.');
       await renderOperations(result, operationForm.dataset.operationId);

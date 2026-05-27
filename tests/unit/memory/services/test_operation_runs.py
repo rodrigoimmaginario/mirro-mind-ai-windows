@@ -19,6 +19,8 @@ def test_operation_run_service_records_completed_runs(tmp_path):
     assert completed.summary == ["Runtime status: ready"]
     assert completed.result == {"status": "ready"}
     assert completed.completed_at is not None
+    assert [event.kind for event in completed.events] == ["running", "completed"]
+    assert completed.events[-1].details["outcome"] == "ready"
     assert recent[0].id == run.id
 
 
@@ -31,6 +33,8 @@ def test_operation_run_service_records_failed_runs(tmp_path):
     assert failed.error == "Database not found"
     assert failed.parameters == {"verify": True}
     assert failed.completed_at is not None
+    assert [event.kind for event in failed.events] == ["running", "failed"]
+    assert failed.events[-1].details["error"] == "Database not found"
 
 
 def test_operation_run_service_records_queued_and_running_states(tmp_path):
@@ -39,5 +43,7 @@ def test_operation_run_service_records_queued_and_running_states(tmp_path):
         running = mem.operation_runs.mark_running(queued.id)
 
     assert queued.status == "queued"
+    assert queued.events[0].kind == "queued"
     assert running.status == "running"
     assert running.id == queued.id
+    assert [event.kind for event in running.events] == ["queued", "running"]

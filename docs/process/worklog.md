@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-05-27 — v0.16.1 release candidate prepared
+
+Prepared `v0.16.1 — Runtime Update Preflight Resilience` to publish the CV9.E2.S3 updater hardening fix. The release note explains the production failure mode, the narrow update-safe preflight lane for core migration drift, SQLite WAL sidecar status recovery, and the preserved safety gates.
+
+Validation: pending release-note smoke, release doctor, and production update validation.
+
 ### 2026-05-27 — Runtime update preflight resilience validated in production
 
 Fixed a structural updater fragility where an older production checkout could not update because its strict pre-update status gate rejected a core migration row introduced by the target version. The updater now distinguishes full runtime readiness from a narrow update-safe preflight state: core migration drift may proceed only when git, mirror home, database existence, and extension health are otherwise safe, with backup, migrations, and post-update status still enforced. Runtime status SQLite inspection also recovers WAL sidecar absence by reopening the existing database in bounded read-write mode when strict read-only inspection reports `unable to open database file`.

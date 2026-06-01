@@ -111,6 +111,8 @@ def test_operations_catalog_api_exposes_read_only_allowlist(tmp_path: Path) -> N
         "conversation-journey-repair",
         "run-console-demo",
         "agent-run-prototype",
+        "historical-metadata-backfill",
+        "orphan-conversation-cleanup",
         "batch-conversation-retitle",
     ]
     assert payload[0]["execution"] == "runnable"
@@ -120,6 +122,8 @@ def test_operations_catalog_api_exposes_read_only_allowlist(tmp_path: Path) -> N
     assert payload[4]["execution"] == "runnable"
     assert payload[5]["execution"] == "runnable"
     assert payload[6]["execution"] == "runnable"
+    assert payload[7]["execution"] == "runnable"
+    assert payload[8]["execution"] == "runnable"
     assert payload[3]["dryRun"] == "required"
     assert payload[3]["parameters"][0]["name"] == "dryRun"
     assert payload[6]["dryRun"] == "required"
@@ -250,6 +254,72 @@ def test_operations_run_api_executes_agent_run_prototype(tmp_path: Path) -> None
     assert agent["intent"] == "Inspect my current Mirror state"
     assert "No autonomous writes." in agent["boundaries"]
     assert completed["events"][-1]["kind"] == "completed"
+
+
+def test_operations_run_api_requires_approval_before_metadata_backfill_apply(
+    tmp_path: Path,
+) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        conversation = mem.conversations.start_conversation(interface="pi")
+        mem.conversations.set_provisional_title(conversation.id, "vamos trabalhar no maestro")
+        mem.conversations.add_message(conversation.id, "user", "Vamos validar metadata")
+        mem.conversations.add_message(conversation.id, "assistant", "Vamos aplicar backfill")
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/operations/run",
+            {
+                "operationId": "historical-metadata-backfill",
+                "parameters": {
+                    "dryRun": False,
+                    "mode": "safe",
+                    "allConversations": False,
+                    "limit": 10,
+                },
+            },
+        )
+    finally:
+        server.close()
+
+    assert status == 202
+    assert payload["status"] == "approval_required"
+
+
+def test_operations_run_api_requires_approval_before_orphan_cleanup_apply(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        conversation = mem.conversations.start_conversation(interface="pi", title="orphan")
+        mem.conversations.add_message(conversation.id, "user", "orphan")
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/operations/run",
+            {
+                "operationId": "orphan-conversation-cleanup",
+                "parameters": {
+                    "dryRun": False,
+                    "source": "all_orphans",
+                    "allConversations": True,
+                    "maximumMessages": 3,
+                },
+            },
+        )
+    finally:
+        server.close()
+
+    assert status == 202
+    assert payload["status"] == "approval_required"
 
 
 def test_operations_run_api_requires_approval_before_conversation_repair_apply(
@@ -991,7 +1061,9 @@ def test_conversation_metadata_lifecycle_preview_api_reports_without_mutation(
     with MemoryClient(db_path=db_path) as mem:
         conversation = mem.conversations.start_conversation(interface="pi")
         mem.conversations.set_provisional_title(conversation.id, "vamos trabalhar no maestro")
-        mem.conversations.add_message(conversation.id, "user", "Vamos validar checkpoint visibility")
+        mem.conversations.add_message(
+            conversation.id, "user", "Vamos validar checkpoint visibility"
+        )
         mem.conversations.add_message(conversation.id, "assistant", "Vamos revisar o handoff")
         before = mem.store.get_conversation(conversation.id)
 
@@ -1023,7 +1095,9 @@ def test_conversation_metadata_lifecycle_apply_api_generates_ready_updates(
     with MemoryClient(db_path=db_path) as mem:
         conversation = mem.conversations.start_conversation(interface="pi")
         mem.conversations.set_provisional_title(conversation.id, "vamos trabalhar no maestro")
-        mem.conversations.add_message(conversation.id, "user", "Vamos validar checkpoint visibility")
+        mem.conversations.add_message(
+            conversation.id, "user", "Vamos validar checkpoint visibility"
+        )
         mem.conversations.add_message(conversation.id, "assistant", "Vamos revisar o handoff")
 
     monkeypatch.setattr(

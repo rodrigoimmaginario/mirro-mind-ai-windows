@@ -325,6 +325,7 @@ function operationIcon(id) {
   if (id === 'run-console-demo') return '◷';
   if (id === 'database-backup') return '◫';
   if (id === 'conversation-journey-repair') return '↔';
+  if (id === 'orphan-conversation-cleanup') return '⌫';
   if (id === 'agent-run-prototype') return '✦';
   if (id === 'conversation-logger-health') return '◌';
   return '◇';
@@ -340,6 +341,18 @@ function renderOperationParameter(parameter) {
       <label class="operation-check">
         <input type="checkbox" name="${name}" ${checked} />
         <span>${label}</span>
+        ${description}
+      </label>
+    `;
+  }
+  if (parameter.kind === 'choice') {
+    const options = (parameter.choices || []).map((choice) => `
+      <option value="${escapeHtml(choice)}" ${choice === parameter.default ? 'selected' : ''}>${escapeHtml(choice)}</option>
+    `).join('');
+    return `
+      <label>
+        <span>${label}</span>
+        <select name="${name}">${options}</select>
         ${description}
       </label>
     `;
@@ -389,8 +402,9 @@ function showRunConsole(result, operation = null) {
   const runId = result.runId || result.id || '';
   const operationId = result.operationId || operation?.id || 'operation';
   const terminal = !['queued', 'running', 'cancellation_requested', 'approval_required'].includes(result.status);
+  const waitingForApproval = result.status === 'approval_required';
   const summary = (result.summary || []).map((line) => `<li>${escapeHtml(line)}</li>`).join('');
-  const actionButtons = renderRunConsoleActions(result);
+  const actionButtons = waitingForApproval ? '' : renderRunConsoleActions(result);
   const detailsIntro = operation ? `
     <section class="operation-evidence-list">
       <strong>${escapeHtml(operation.title)}</strong>
@@ -413,6 +427,7 @@ function showRunConsole(result, operation = null) {
       <small>Disabled in this prototype. The current run is read-only and proposal-oriented.</small>
     </section>
   ` : '';
+  const showDetailsFirst = terminal && operationId === 'historical-metadata-backfill';
   content.innerHTML = `
     <section class="run-console-shell single">
       <section class="run-console-main">
@@ -422,17 +437,19 @@ function showRunConsole(result, operation = null) {
           <p class="surface-note">This surface updates from durable run state. True SSE/WebSocket streaming remains future work.</p>
           ${actionButtons}
         </div>
-        <div class="workspace-tabs run-frame-tabs" role="tablist" aria-label="Run result frame">
-          <button type="button" class="workspace-tab active" data-run-tab="console" role="tab" aria-selected="true">Polled console</button>
-          ${terminal ? '<button type="button" class="workspace-tab result-ready" data-run-tab="details" role="tab" aria-selected="false">Result details</button>' : ''}
-        </div>
-        <div class="run-tab-panel active" data-run-panel="console" role="tabpanel">
-          <div class="run-terminal">
-            ${renderConsoleLines(result)}
+        ${waitingForApproval ? renderApprovalRequiredPanel(result, operation) : `
+          <div class="workspace-tabs run-frame-tabs" role="tablist" aria-label="Run result frame">
+            <button type="button" class="workspace-tab ${showDetailsFirst ? '' : 'active'}" data-run-tab="console" role="tab" aria-selected="${showDetailsFirst ? 'false' : 'true'}">Polled console</button>
+            ${terminal ? `<button type="button" class="workspace-tab result-ready ${showDetailsFirst ? 'active' : ''}" data-run-tab="details" role="tab" aria-selected="${showDetailsFirst ? 'true' : 'false'}">Result details</button>` : ''}
           </div>
-          ${terminal ? renderRunCompletionInvite(result) : ''}
-        </div>
-        ${terminal ? `<div class="run-tab-panel" data-run-panel="details" role="tabpanel" hidden>
+          <div class="run-tab-panel ${showDetailsFirst ? '' : 'active'}" data-run-panel="console" role="tabpanel" ${showDetailsFirst ? 'hidden' : ''}>
+            <div class="run-terminal">
+              ${renderConsoleLines(result)}
+            </div>
+            ${terminal ? renderRunCompletionInvite(result) : ''}
+          </div>
+        `}
+        ${terminal ? `<div class="run-tab-panel ${showDetailsFirst ? 'active' : ''}" data-run-panel="details" role="tabpanel" ${showDetailsFirst ? '' : 'hidden'}>
           ${detailsIntro}
           ${runFacts}
           ${summary ? `<div class="operation-evidence-list"><strong>Summary</strong><ul>${summary}</ul></div>` : ''}
@@ -446,6 +463,21 @@ function showRunConsole(result, operation = null) {
   `;
   const terminalEl = content.querySelector('.run-terminal');
   if (terminalEl) terminalEl.scrollTop = terminalEl.scrollHeight;
+}
+
+function renderApprovalRequiredPanel(result, operation = null) {
+  const runId = result.runId || result.id || '';
+  return `
+    <section class="approval-required-panel">
+      <p class="eyebrow">Approval required</p>
+      <h3>This operation can change your Mirror data.</h3>
+      <p>${escapeHtml(operation?.title || result.operationId || 'This operation')} is queued, but it will not run until you approve it.</p>
+      <div class="run-actions approval-actions">
+        <button type="button" class="danger-action" data-operation-approve="${escapeHtml(runId)}">Approve and run operation</button>
+        <button type="button" class="secondary-action" data-operation-cancel="${escapeHtml(runId)}">Cancel</button>
+      </div>
+    </section>
+  `;
 }
 
 function renderRunCompletionInvite(result) {
@@ -465,7 +497,7 @@ function renderRunConsoleActions(result) {
   if (!runId) return '';
   const parts = [];
   if (result.status === 'approval_required') {
-    parts.push(`<button type="button" class="secondary-action" data-operation-approve="${escapeHtml(runId)}">Approve</button>`);
+    parts.push(`<button type="button" class="danger-action" data-operation-approve="${escapeHtml(runId)}">Approve and run operation</button>`);
   }
   if (['queued', 'running', 'cancellation_requested', 'approval_required'].includes(result.status)) {
     parts.push(`<button type="button" class="secondary-action" data-operation-cancel="${escapeHtml(runId)}">Request cancel</button>`);
@@ -549,8 +581,58 @@ function renderOperationResultCards(result) {
   if (result.operationId === 'runtime-diagnose') return renderCommandResult(data.command || {});
   if (result.operationId === 'database-backup') return renderBackupResult(data);
   if (result.operationId === 'conversation-journey-repair') return renderRepairResult(data);
+  if (result.operationId === 'historical-metadata-backfill') return renderMetadataBackfillResult(data);
+  if (result.operationId === 'orphan-conversation-cleanup') return renderOrphanCleanupResult(data);
   if (result.operationId === 'agent-run-prototype') return renderAgentPrototypeResult(data.agent || {});
   return '';
+}
+
+function renderMetadataBackfillResult(data) {
+  const preview = data.preview || {};
+  const apply = data.apply || null;
+  const backup = data.backupPath || null;
+  const changed = apply?.changed_count ?? 0;
+  const candidates = apply?.candidate_count ?? preview.candidate_count ?? 0;
+  const noChanges = (apply?.results || []).filter((item) => !item.mutated);
+  const noChangeList = noChanges.slice(0, 30).map((item) => `<li><code>${escapeHtml(item.conversation_id || '')}</code></li>`).join('');
+  return `
+    <section class="operation-result-card">
+      <p class="eyebrow">Metadata backfill</p>
+      <h3>${apply ? 'Backfill applied' : 'Backfill preview'}</h3>
+      <div class="operation-result-grid">
+        ${renderResultFact('Mode', apply?.backfill_mode || preview.backfill_mode || 'unknown')}
+        ${renderResultFact('Scope', preview.scope || 'all')}
+        ${renderResultFact('Candidates', String(candidates))}
+        ${renderResultFact('Changed', String(changed))}
+        ${renderResultFact('No changes', String(noChanges.length))}
+        ${renderResultFact('Backup', backup ? 'created' : 'not needed')}
+      </div>
+      ${backup ? `<p>Backup: <code>${escapeHtml(backup)}</code></p>` : ''}
+      ${noChangeList ? `<div class="operation-evidence-list"><strong>No-change conversations</strong><ul>${noChangeList}</ul></div>` : ''}
+    </section>
+  `;
+}
+
+function renderOrphanCleanupResult(data) {
+  const candidates = data.candidates || [];
+  const candidateList = candidates.slice(0, 50).map((item) => `
+    <li><code>${escapeHtml(item.conversationId || '')}</code> · ${escapeHtml(item.title || 'Untitled')} · ${escapeHtml(String(item.messageCount ?? 0))} msg</li>
+  `).join('');
+  return `
+    <section class="operation-result-card">
+      <p class="eyebrow">Orphan cleanup</p>
+      <h3>${data.deletedCount ? 'Conversations deleted' : 'Cleanup preview'}</h3>
+      <div class="operation-result-grid">
+        ${renderResultFact('Source', data.source || 'unknown')}
+        ${renderResultFact('Candidates', String(data.candidateCount || 0))}
+        ${renderResultFact('Deleted', String(data.deletedCount || 0))}
+        ${renderResultFact('Max messages', String(data.maximumMessages ?? 'unknown'))}
+        ${renderResultFact('Backup', data.backupPath ? 'created' : 'not needed')}
+      </div>
+      ${data.backupPath ? `<p>Backup: <code>${escapeHtml(data.backupPath)}</code></p>` : ''}
+      ${candidateList ? `<div class="operation-evidence-list"><strong>Candidate conversations</strong><ul>${candidateList}</ul></div>` : ''}
+    </section>
+  `;
 }
 
 function renderRuntimeHealthResult(data) {
@@ -676,7 +758,7 @@ function renderOperationRun(run) {
           <em>${escapeHtml(run.outcome || run.status)}</em>
         </div>
         <small>${escapeHtml(formatDateTime(run.startedAt))}</small>
-        ${approvable ? `<button type="button" class="secondary-action" data-operation-approve="${escapeHtml(run.id)}">Approve</button>` : ''}
+        ${approvable ? `<button type="button" class="danger-action" data-operation-approve="${escapeHtml(run.id)}">Approve</button>` : ''}
         ${cancellable ? `<button type="button" class="secondary-action" data-operation-cancel="${escapeHtml(run.id)}">Request cancel</button>` : ''}
       </div>
     </article>
@@ -717,7 +799,7 @@ async function waitForOperationRun(runId, attempts = 20) {
 function operationPayloadFromForm(form) {
   const parameters = {};
   const data = new FormData(form);
-  form.querySelectorAll('input[name]').forEach((input) => {
+  form.querySelectorAll('input[name], select[name]').forEach((input) => {
     if (input.type === 'checkbox') {
       parameters[input.name] = input.checked;
       return;
@@ -1781,10 +1863,9 @@ content.addEventListener('click', async (event) => {
     event.preventDefault();
     try {
       const approved = await fetchJson(`/api/operations/runs/${encodeURIComponent(operationApprove.dataset.operationApprove)}/approve`, { method: 'POST' });
-      showWarning('Operation approved.');
-      const completed = await waitForOperationRun(approved.id);
-      const result = operationRunToResult(completed || approved, approved);
-      showRunConsole(result, catalogOperationById(result.operationId));
+      showWarning('Operation approved. Watching progress…');
+      showRunConsole(operationRunToResult(approved), catalogOperationById(approved.operationId));
+      await pollRunConsole(approved.id);
     } catch (error) {
       showWarning(String(error.message || error));
     }

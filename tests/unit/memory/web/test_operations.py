@@ -18,6 +18,8 @@ def test_operation_catalog_exposes_stable_allowlisted_operations() -> None:
         "conversation-journey-repair",
         "run-console-demo",
         "agent-run-prototype",
+        "historical-metadata-backfill",
+        "orphan-conversation-cleanup",
         "batch-conversation-retitle",
     ]
     operations = {operation["id"]: operation for operation in payload}
@@ -27,6 +29,8 @@ def test_operation_catalog_exposes_stable_allowlisted_operations() -> None:
     assert operations["conversation-journey-repair"]["execution"] == "runnable"
     assert operations["run-console-demo"]["execution"] == "runnable"
     assert operations["agent-run-prototype"]["execution"] == "runnable"
+    assert operations["historical-metadata-backfill"]["execution"] == "runnable"
+    assert operations["orphan-conversation-cleanup"]["execution"] == "runnable"
     assert operations["batch-conversation-retitle"]["execution"] == "runnable"
     assert all(
         operation["execution"] == "future"
@@ -39,6 +43,8 @@ def test_operation_catalog_exposes_stable_allowlisted_operations() -> None:
             "conversation-journey-repair",
             "run-console-demo",
             "agent-run-prototype",
+            "historical-metadata-backfill",
+            "orphan-conversation-cleanup",
             "batch-conversation-retitle",
         }
     )
@@ -53,6 +59,10 @@ def test_operation_catalog_declares_risk_and_dry_run_boundaries() -> None:
     assert operations["database-backup"]["riskLevel"] == "writes_backup"
     assert operations["conversation-journey-repair"]["riskLevel"] == "writes_database"
     assert operations["conversation-journey-repair"]["dryRun"] == "required"
+    assert operations["historical-metadata-backfill"]["riskLevel"] == "external_llm"
+    assert operations["historical-metadata-backfill"]["dryRun"] == "required"
+    assert operations["orphan-conversation-cleanup"]["riskLevel"] == "writes_database"
+    assert operations["orphan-conversation-cleanup"]["dryRun"] == "required"
     assert operations["batch-conversation-retitle"]["riskLevel"] == "external_llm"
     assert operations["batch-conversation-retitle"]["dryRun"] == "required"
 
@@ -81,6 +91,19 @@ def test_operation_catalog_parameters_are_declarative_and_bounded() -> None:
             "maximum": 500,
         },
     ]
+
+    backfill_parameters = operations["historical-metadata-backfill"]["parameters"]
+    assert {parameter["name"] for parameter in backfill_parameters} == {
+        "dryRun",
+        "mode",
+        "scope",
+        "allConversations",
+        "limit",
+        "journey",
+    }
+    assert next(parameter for parameter in backfill_parameters if parameter["name"] == "mode")[
+        "choices"
+    ] == ["safe", "force"]
 
     retitle_parameters = operations["batch-conversation-retitle"]["parameters"]
     assert {parameter["name"] for parameter in retitle_parameters} == {
@@ -243,6 +266,143 @@ def test_run_operation_dry_runs_batch_conversation_retitle_without_llm(
     title_mock.assert_not_called()
     with MemoryClient(db_path=mirror_home / "memory.db") as mem:
         assert mem.store.get_conversation(conversation_id).title.endswith("...")
+
+
+def test_run_operation_previews_historical_metadata_backfill(tmp_path: Path) -> None:
+    mirror_home, conversation_id = _mirror_with_poorly_titled_conversation(tmp_path)
+
+    result = run_operation(
+        "historical-metadata-backfill",
+        mirror_home=mirror_home,
+        parameters={"dryRun": True, "mode": "safe", "limit": 10},
+    )
+
+    assert result["operationId"] == "historical-metadata-backfill"
+    assert result["outcome"] == "dry_run"
+    assert result["result"]["preview"]["mutated"] is False
+    assert result["result"]["preview"]["candidate_count"] == 1
+    assert result["result"]["backupPath"] is None
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        assert mem.store.get_conversation(conversation_id).title.endswith("...")
+
+
+def test_run_operation_applies_historical_metadata_backfill_with_backup(
+    tmp_path: Path, mocker
+) -> None:
+    mirror_home, conversation_id = _mirror_with_poorly_titled_conversation(tmp_path)
+    mocker.patch(
+        "memory.services.conversation.generate_conversation_title",
+        return_value="Conversation metadata backfill",
+    )
+    events: list[tuple[str, str, dict[str, object] | None]] = []
+
+    result = run_operation(
+        "historical-metadata-backfill",
+        mirror_home=mirror_home,
+        parameters={"dryRun": False, "mode": "safe", "allConversations": False, "limit": 10},
+        emit_event=lambda kind, message, details=None: events.append((kind, message, details)),
+    )
+
+    backup_path = Path(result["result"]["backupPath"])
+    assert result["outcome"] == "applied"
+    assert result["result"]["apply"]["changed_count"] == 1
+    assert backup_path.exists()
+    assert any("Backup created" in message for _, message, _ in events)
+    assert any("Backfilled 1/1" in message for _, message, _ in events)
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        assert mem.store.get_conversation(conversation_id).title == "Conversation metadata backfill"
+
+
+def test_run_operation_previews_orphan_conversation_cleanup(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        orphan = mem.conversations.start_conversation(interface="pi", title="orphan")
+        mem.conversations.add_message(orphan.id, "user", "orphan message")
+        journey = mem.conversations.start_conversation(
+            interface="pi", journey="mirror-mind", title="journey"
+        )
+        mem.conversations.add_message(journey.id, "user", "journey message")
+
+    result = run_operation(
+        "orphan-conversation-cleanup",
+        mirror_home=mirror_home,
+        parameters={
+            "dryRun": True,
+            "source": "all_orphans",
+            "allConversations": True,
+            "maximumMessages": 3,
+        },
+    )
+
+    assert result["operationId"] == "orphan-conversation-cleanup"
+    assert result["outcome"] == "dry_run"
+    assert result["result"]["candidateCount"] == 1
+    assert result["result"]["candidates"][0]["conversationId"] == orphan.id
+
+
+def test_run_operation_deletes_orphan_conversations_with_backup(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        orphan = mem.conversations.start_conversation(interface="pi", title="orphan")
+        mem.conversations.add_message(orphan.id, "user", "orphan message")
+
+    events: list[tuple[str, str, dict[str, object] | None]] = []
+    result = run_operation(
+        "orphan-conversation-cleanup",
+        mirror_home=mirror_home,
+        parameters={
+            "dryRun": False,
+            "source": "all_orphans",
+            "allConversations": True,
+            "maximumMessages": 3,
+        },
+        emit_event=lambda kind, message, details=None: events.append((kind, message, details)),
+    )
+
+    assert result["outcome"] == "deleted"
+    assert result["result"]["deletedCount"] == 1
+    assert Path(result["result"]["backupPath"]).exists()
+    assert any("Backup created" in message for _, message, _ in events)
+    assert any("Deleted 1/1" in message for _, message, _ in events)
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        assert mem.store.get_conversation(orphan.id) is None
+        assert mem.store.get_messages(orphan.id) == []
+
+
+def test_run_operation_deletes_orphan_conversation_with_runtime_reference(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        orphan = mem.conversations.start_conversation(interface="pi", title="orphan")
+        mem.conversations.add_message(orphan.id, "user", "orphan message")
+        mem.store.conn.execute(
+            """
+            INSERT INTO runtime_sessions (
+                session_id, conversation_id, interface, mirror_active, active,
+                started_at, updated_at
+            ) VALUES (?, ?, ?, 1, 1, ?, ?)
+            """,
+            ("session-1", orphan.id, "pi", orphan.started_at, orphan.started_at),
+        )
+        mem.store.conn.commit()
+
+    result = run_operation(
+        "orphan-conversation-cleanup",
+        mirror_home=mirror_home,
+        parameters={
+            "dryRun": False,
+            "source": "all_orphans",
+            "allConversations": True,
+            "maximumMessages": 3,
+        },
+    )
+
+    assert result["outcome"] == "deleted"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        assert mem.store.get_conversation(orphan.id) is None
+        session_row = mem.store.conn.execute(
+            "SELECT conversation_id FROM runtime_sessions WHERE session_id = 'session-1'"
+        ).fetchone()
+        assert session_row["conversation_id"] is None
 
 
 def test_run_operation_applies_batch_conversation_retitle_with_backup(

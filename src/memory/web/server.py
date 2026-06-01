@@ -610,7 +610,13 @@ def _conversation_tags(raw_tags: str | None) -> list[str]:
 
 
 def _operation_requires_approval(operation_id: str, parameters: dict[str, object]) -> bool:
-    return operation_id == "conversation-journey-repair" and parameters.get("dryRun") is False
+    if operation_id == "conversation-journey-repair" and parameters.get("dryRun") is False:
+        return True
+    if operation_id == "historical-metadata-backfill" and parameters.get("dryRun") is False:
+        return True
+    if operation_id == "orphan-conversation-cleanup" and parameters.get("dryRun") is False:
+        return True
+    return False
 
 
 def _record_operation_event(
@@ -653,7 +659,7 @@ def _execute_operation_run(
                 run_id, kind, message, details, db_path=db_path
             ),
         )
-    except (ValueError, TypeError, OSError) as exc:
+    except Exception as exc:
         with MemoryClient(db_path=db_path) as mem:
             mem.operation_runs.fail(run_id, error=str(exc))
         return

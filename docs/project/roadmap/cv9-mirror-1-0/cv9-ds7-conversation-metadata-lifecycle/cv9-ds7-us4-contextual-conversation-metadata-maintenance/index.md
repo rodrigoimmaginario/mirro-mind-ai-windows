@@ -1,7 +1,7 @@
 # CV9.DS7.US4 — Contextual Conversation Metadata Maintenance
 
 **Type:** User Story  
-**Status:** Active  
+**Status:** Done
 **Parent:** [CV9.DS7 — Conversation Metadata Lifecycle](../index.md)
 
 ## Story

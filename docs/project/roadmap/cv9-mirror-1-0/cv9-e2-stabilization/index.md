@@ -3,7 +3,7 @@
 # CV9.E2 — Stabilization & Robustness
 
 **Epic:** Harden failure modes so Mirror Mind degrades safely instead of breaking or corrupting runtime state  
-**Status:** Planned, with CV9.E2.S3 production updater fix and CV9.E2.S4 conversation title hardening done
+**Status:** Planned, with CV9.E2.S3 production updater fix and CV9.E2.S4 conversation title hardening done; conversation metadata lifecycle identified as [CV9.DS7](../cv9-ds7-conversation-metadata-lifecycle/index.md)
 **Depends on:** CV9.E1 Boundary Hardening, except for isolated production-bug fixes that are already understood
 
 ---
@@ -57,6 +57,9 @@ CV9.E2 is done when:
   generation fails.
 - Runtime-visible commands surface actionable error messages for common external
   failure modes.
+- [Conversation metadata lifecycle](../cv9-ds7-conversation-metadata-lifecycle/index.md)
+  behavior prevents weak title/summary state from becoming durable user-facing
+  metadata while preserving manual edits.
 - External extensions have a first-class skill discovery path across Pi, Claude
   Code, Gemini CLI, and Codex where the runtime supports project-local skills.
 - The stabilization behavior is covered by focused unit tests and at least one

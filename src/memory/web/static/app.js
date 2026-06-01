@@ -325,6 +325,7 @@ function operationIcon(id) {
   if (id === 'run-console-demo') return '◷';
   if (id === 'database-backup') return '◫';
   if (id === 'conversation-journey-repair') return '↔';
+  if (id === 'orphan-conversation-cleanup') return '⌫';
   if (id === 'agent-run-prototype') return '✦';
   if (id === 'conversation-logger-health') return '◌';
   return '◇';
@@ -340,6 +341,18 @@ function renderOperationParameter(parameter) {
       <label class="operation-check">
         <input type="checkbox" name="${name}" ${checked} />
         <span>${label}</span>
+        ${description}
+      </label>
+    `;
+  }
+  if (parameter.kind === 'choice') {
+    const options = (parameter.choices || []).map((choice) => `
+      <option value="${escapeHtml(choice)}" ${choice === parameter.default ? 'selected' : ''}>${escapeHtml(choice)}</option>
+    `).join('');
+    return `
+      <label>
+        <span>${label}</span>
+        <select name="${name}">${options}</select>
         ${description}
       </label>
     `;
@@ -389,8 +402,9 @@ function showRunConsole(result, operation = null) {
   const runId = result.runId || result.id || '';
   const operationId = result.operationId || operation?.id || 'operation';
   const terminal = !['queued', 'running', 'cancellation_requested', 'approval_required'].includes(result.status);
+  const waitingForApproval = result.status === 'approval_required';
   const summary = (result.summary || []).map((line) => `<li>${escapeHtml(line)}</li>`).join('');
-  const actionButtons = renderRunConsoleActions(result);
+  const actionButtons = waitingForApproval ? '' : renderRunConsoleActions(result);
   const detailsIntro = operation ? `
     <section class="operation-evidence-list">
       <strong>${escapeHtml(operation.title)}</strong>
@@ -413,6 +427,7 @@ function showRunConsole(result, operation = null) {
       <small>Disabled in this prototype. The current run is read-only and proposal-oriented.</small>
     </section>
   ` : '';
+  const showDetailsFirst = terminal && operationId === 'historical-metadata-backfill';
   content.innerHTML = `
     <section class="run-console-shell single">
       <section class="run-console-main">
@@ -422,17 +437,19 @@ function showRunConsole(result, operation = null) {
           <p class="surface-note">This surface updates from durable run state. True SSE/WebSocket streaming remains future work.</p>
           ${actionButtons}
         </div>
-        <div class="workspace-tabs run-frame-tabs" role="tablist" aria-label="Run result frame">
-          <button type="button" class="workspace-tab active" data-run-tab="console" role="tab" aria-selected="true">Polled console</button>
-          ${terminal ? '<button type="button" class="workspace-tab result-ready" data-run-tab="details" role="tab" aria-selected="false">Result details</button>' : ''}
-        </div>
-        <div class="run-tab-panel active" data-run-panel="console" role="tabpanel">
-          <div class="run-terminal">
-            ${renderConsoleLines(result)}
+        ${waitingForApproval ? renderApprovalRequiredPanel(result, operation) : `
+          <div class="workspace-tabs run-frame-tabs" role="tablist" aria-label="Run result frame">
+            <button type="button" class="workspace-tab ${showDetailsFirst ? '' : 'active'}" data-run-tab="console" role="tab" aria-selected="${showDetailsFirst ? 'false' : 'true'}">Polled console</button>
+            ${terminal ? `<button type="button" class="workspace-tab result-ready ${showDetailsFirst ? 'active' : ''}" data-run-tab="details" role="tab" aria-selected="${showDetailsFirst ? 'true' : 'false'}">Result details</button>` : ''}
           </div>
-          ${terminal ? renderRunCompletionInvite(result) : ''}
-        </div>
-        ${terminal ? `<div class="run-tab-panel" data-run-panel="details" role="tabpanel" hidden>
+          <div class="run-tab-panel ${showDetailsFirst ? '' : 'active'}" data-run-panel="console" role="tabpanel" ${showDetailsFirst ? 'hidden' : ''}>
+            <div class="run-terminal">
+              ${renderConsoleLines(result)}
+            </div>
+            ${terminal ? renderRunCompletionInvite(result) : ''}
+          </div>
+        `}
+        ${terminal ? `<div class="run-tab-panel ${showDetailsFirst ? 'active' : ''}" data-run-panel="details" role="tabpanel" ${showDetailsFirst ? '' : 'hidden'}>
           ${detailsIntro}
           ${runFacts}
           ${summary ? `<div class="operation-evidence-list"><strong>Summary</strong><ul>${summary}</ul></div>` : ''}
@@ -446,6 +463,21 @@ function showRunConsole(result, operation = null) {
   `;
   const terminalEl = content.querySelector('.run-terminal');
   if (terminalEl) terminalEl.scrollTop = terminalEl.scrollHeight;
+}
+
+function renderApprovalRequiredPanel(result, operation = null) {
+  const runId = result.runId || result.id || '';
+  return `
+    <section class="approval-required-panel">
+      <p class="eyebrow">Approval required</p>
+      <h3>This operation can change your Mirror data.</h3>
+      <p>${escapeHtml(operation?.title || result.operationId || 'This operation')} is queued, but it will not run until you approve it.</p>
+      <div class="run-actions approval-actions">
+        <button type="button" class="danger-action" data-operation-approve="${escapeHtml(runId)}">Approve and run operation</button>
+        <button type="button" class="secondary-action" data-operation-cancel="${escapeHtml(runId)}">Cancel</button>
+      </div>
+    </section>
+  `;
 }
 
 function renderRunCompletionInvite(result) {
@@ -465,7 +497,7 @@ function renderRunConsoleActions(result) {
   if (!runId) return '';
   const parts = [];
   if (result.status === 'approval_required') {
-    parts.push(`<button type="button" class="secondary-action" data-operation-approve="${escapeHtml(runId)}">Approve</button>`);
+    parts.push(`<button type="button" class="danger-action" data-operation-approve="${escapeHtml(runId)}">Approve and run operation</button>`);
   }
   if (['queued', 'running', 'cancellation_requested', 'approval_required'].includes(result.status)) {
     parts.push(`<button type="button" class="secondary-action" data-operation-cancel="${escapeHtml(runId)}">Request cancel</button>`);
@@ -549,8 +581,58 @@ function renderOperationResultCards(result) {
   if (result.operationId === 'runtime-diagnose') return renderCommandResult(data.command || {});
   if (result.operationId === 'database-backup') return renderBackupResult(data);
   if (result.operationId === 'conversation-journey-repair') return renderRepairResult(data);
+  if (result.operationId === 'historical-metadata-backfill') return renderMetadataBackfillResult(data);
+  if (result.operationId === 'orphan-conversation-cleanup') return renderOrphanCleanupResult(data);
   if (result.operationId === 'agent-run-prototype') return renderAgentPrototypeResult(data.agent || {});
   return '';
+}
+
+function renderMetadataBackfillResult(data) {
+  const preview = data.preview || {};
+  const apply = data.apply || null;
+  const backup = data.backupPath || null;
+  const changed = apply?.changed_count ?? 0;
+  const candidates = apply?.candidate_count ?? preview.candidate_count ?? 0;
+  const noChanges = (apply?.results || []).filter((item) => !item.mutated);
+  const noChangeList = noChanges.slice(0, 30).map((item) => `<li><code>${escapeHtml(item.conversation_id || '')}</code></li>`).join('');
+  return `
+    <section class="operation-result-card">
+      <p class="eyebrow">Metadata backfill</p>
+      <h3>${apply ? 'Backfill applied' : 'Backfill preview'}</h3>
+      <div class="operation-result-grid">
+        ${renderResultFact('Mode', apply?.backfill_mode || preview.backfill_mode || 'unknown')}
+        ${renderResultFact('Scope', preview.scope || 'all')}
+        ${renderResultFact('Candidates', String(candidates))}
+        ${renderResultFact('Changed', String(changed))}
+        ${renderResultFact('No changes', String(noChanges.length))}
+        ${renderResultFact('Backup', backup ? 'created' : 'not needed')}
+      </div>
+      ${backup ? `<p>Backup: <code>${escapeHtml(backup)}</code></p>` : ''}
+      ${noChangeList ? `<div class="operation-evidence-list"><strong>No-change conversations</strong><ul>${noChangeList}</ul></div>` : ''}
+    </section>
+  `;
+}
+
+function renderOrphanCleanupResult(data) {
+  const candidates = data.candidates || [];
+  const candidateList = candidates.slice(0, 50).map((item) => `
+    <li><code>${escapeHtml(item.conversationId || '')}</code> · ${escapeHtml(item.title || 'Untitled')} · ${escapeHtml(String(item.messageCount ?? 0))} msg</li>
+  `).join('');
+  return `
+    <section class="operation-result-card">
+      <p class="eyebrow">Orphan cleanup</p>
+      <h3>${data.deletedCount ? 'Conversations deleted' : 'Cleanup preview'}</h3>
+      <div class="operation-result-grid">
+        ${renderResultFact('Source', data.source || 'unknown')}
+        ${renderResultFact('Candidates', String(data.candidateCount || 0))}
+        ${renderResultFact('Deleted', String(data.deletedCount || 0))}
+        ${renderResultFact('Max messages', String(data.maximumMessages ?? 'unknown'))}
+        ${renderResultFact('Backup', data.backupPath ? 'created' : 'not needed')}
+      </div>
+      ${data.backupPath ? `<p>Backup: <code>${escapeHtml(data.backupPath)}</code></p>` : ''}
+      ${candidateList ? `<div class="operation-evidence-list"><strong>Candidate conversations</strong><ul>${candidateList}</ul></div>` : ''}
+    </section>
+  `;
 }
 
 function renderRuntimeHealthResult(data) {
@@ -676,7 +758,7 @@ function renderOperationRun(run) {
           <em>${escapeHtml(run.outcome || run.status)}</em>
         </div>
         <small>${escapeHtml(formatDateTime(run.startedAt))}</small>
-        ${approvable ? `<button type="button" class="secondary-action" data-operation-approve="${escapeHtml(run.id)}">Approve</button>` : ''}
+        ${approvable ? `<button type="button" class="danger-action" data-operation-approve="${escapeHtml(run.id)}">Approve</button>` : ''}
         ${cancellable ? `<button type="button" class="secondary-action" data-operation-cancel="${escapeHtml(run.id)}">Request cancel</button>` : ''}
       </div>
     </article>
@@ -717,7 +799,7 @@ async function waitForOperationRun(runId, attempts = 20) {
 function operationPayloadFromForm(form) {
   const parameters = {};
   const data = new FormData(form);
-  form.querySelectorAll('input[name]').forEach((input) => {
+  form.querySelectorAll('input[name], select[name]').forEach((input) => {
     if (input.type === 'checkbox') {
       parameters[input.name] = input.checked;
       return;
@@ -1202,10 +1284,24 @@ function renderConversationDetail(detail) {
         <h2>${escapeHtml(detail.title || detail.id)}</h2>
         <p>${escapeHtml(detail.description || countLabel)}</p>
         ${chips ? `<div class="workspace-card-detail">${chips}</div>` : ''}
+        <section class="conversation-maintenance" data-metadata-maintenance data-conversation-id="${escapeHtml(detail.id)}">
+          <p class="eyebrow">Metadata maintenance</p>
+          <p>Check whether this conversation needs metadata updates before making any changes.</p>
+          <div class="conversation-title-actions">
+            <button type="button" class="secondary-action" data-metadata-preview>Check if metadata needs updating</button>
+          </div>
+          <div class="metadata-maintenance-report" data-metadata-report hidden></div>
+          <div class="conversation-title-actions" data-metadata-apply-actions hidden>
+            <button type="button" class="secondary-action" data-metadata-apply>Apply metadata update</button>
+          </div>
+        </section>
+      </header>
+      <section class="conversation-title-section">
+        <p class="eyebrow">Title</p>
         <form class="conversation-title-form" data-conversation-title-form data-conversation-id="${escapeHtml(detail.id)}">
           <label>
             <span>Conversation title</span>
-            <input name="title" value="${escapeHtml(detail.title || '')}" maxlength="160" required />
+            <input name="title" value="${escapeHtml(detail.rawTitle || '')}" maxlength="160" required />
           </label>
           <div class="conversation-title-actions">
             <button type="submit">Save title</button>
@@ -1213,13 +1309,33 @@ function renderConversationDetail(detail) {
           </div>
           <div class="title-suggestion" data-title-suggestion hidden></div>
         </form>
-      </header>
-      ${detail.summary ? `
-        <section class="conversation-summary">
-          <p class="eyebrow">Summary</p>
-          <p>${escapeHtml(detail.summary)}</p>
-        </section>
-      ` : ''}
+      </section>
+      <section class="conversation-summary">
+        <p class="eyebrow">Summary</p>
+        <form class="conversation-summary-form" data-conversation-summary-form data-conversation-id="${escapeHtml(detail.id)}">
+          <label>
+            <span>Conversation summary</span>
+            <textarea name="summary" rows="5" maxlength="1000">${escapeHtml(detail.summary || '')}</textarea>
+          </label>
+          <div class="conversation-title-actions">
+            <button type="submit">Save summary</button>
+            <button type="button" class="secondary-action" data-suggest-summary>Suggest summary</button>
+          </div>
+          <div class="summary-suggestion" data-summary-suggestion hidden></div>
+        </form>
+      </section>
+      <section class="conversation-tags-section">
+        <p class="eyebrow">Tags</p>
+        <form class="conversation-tags-form" data-conversation-tags-form data-conversation-id="${escapeHtml(detail.id)}">
+          <label>
+            <span>Conversation tags</span>
+            <input name="tags" value="${escapeHtml((detail.tags || []).join(', '))}" placeholder="metadata, conversation" />
+          </label>
+          <div class="conversation-title-actions">
+            <button type="submit">Save tags</button>
+          </div>
+        </form>
+      </section>
       <section class="conversation-transcript" aria-label="Conversation messages">
         <div class="conversation-transcript-head">
           <p class="eyebrow">Transcript</p>
@@ -1674,12 +1790,42 @@ content.addEventListener('click', async (event) => {
     return;
   }
 
+  const suggestSummaryTarget = event.target.closest('[data-suggest-summary]');
+  if (suggestSummaryTarget) {
+    event.preventDefault();
+    await suggestConversationSummary(suggestSummaryTarget.closest('[data-conversation-summary-form]'));
+    return;
+  }
+
+  const useSummarySuggestionTarget = event.target.closest('[data-use-summary-suggestion]');
+  if (useSummarySuggestionTarget) {
+    event.preventDefault();
+    const form = useSummarySuggestionTarget.closest('[data-conversation-summary-form]');
+    const input = form?.querySelector('textarea[name="summary"]');
+    if (input) input.value = useSummarySuggestionTarget.dataset.useSummarySuggestion || '';
+    return;
+  }
+
   const useTitleSuggestionTarget = event.target.closest('[data-use-title-suggestion]');
   if (useTitleSuggestionTarget) {
     event.preventDefault();
     const form = useTitleSuggestionTarget.closest('[data-conversation-title-form]');
     const input = form?.querySelector('input[name="title"]');
     if (input) input.value = useTitleSuggestionTarget.dataset.useTitleSuggestion || '';
+    return;
+  }
+
+  const metadataPreviewTarget = event.target.closest('[data-metadata-preview]');
+  if (metadataPreviewTarget) {
+    event.preventDefault();
+    await previewConversationMetadata(metadataPreviewTarget.closest('[data-metadata-maintenance]'));
+    return;
+  }
+
+  const metadataApplyTarget = event.target.closest('[data-metadata-apply]');
+  if (metadataApplyTarget) {
+    event.preventDefault();
+    await applyConversationMetadata(metadataApplyTarget.closest('[data-metadata-maintenance]'));
     return;
   }
 
@@ -1717,10 +1863,9 @@ content.addEventListener('click', async (event) => {
     event.preventDefault();
     try {
       const approved = await fetchJson(`/api/operations/runs/${encodeURIComponent(operationApprove.dataset.operationApprove)}/approve`, { method: 'POST' });
-      showWarning('Operation approved.');
-      const completed = await waitForOperationRun(approved.id);
-      const result = operationRunToResult(completed || approved, approved);
-      showRunConsole(result, catalogOperationById(result.operationId));
+      showWarning('Operation approved. Watching progress…');
+      showRunConsole(operationRunToResult(approved), catalogOperationById(approved.operationId));
+      await pollRunConsole(approved.id);
     } catch (error) {
       showWarning(String(error.message || error));
     }
@@ -1816,6 +1961,194 @@ mirrorSelector?.addEventListener('click', async (event) => {
   await selectMirror(option.dataset.mirrorName);
 });
 
+async function previewConversationMetadata(section) {
+  if (!section) return;
+  const reportBox = section.querySelector('[data-metadata-report]');
+  if (reportBox) {
+    reportBox.hidden = false;
+    reportBox.innerHTML = '<p>Running metadata lifecycle preview…</p>';
+  }
+  try {
+    const report = await fetchJson('/api/conversations/metadata-lifecycle-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId: section.dataset.conversationId }),
+    });
+    if (reportBox) reportBox.innerHTML = renderMetadataLifecycleReport(report);
+    const applyActions = section.querySelector('[data-metadata-apply-actions]');
+    if (applyActions) applyActions.hidden = false;
+  } catch (error) {
+    if (reportBox) reportBox.innerHTML = `<p>${escapeHtml(String(error.message || error))}</p>`;
+  }
+}
+
+async function applyConversationMetadata(section) {
+  if (!section) return;
+  const reportBox = section.querySelector('[data-metadata-report]');
+  const applyButton = section.querySelector('[data-metadata-apply]');
+  if (applyButton) {
+    applyButton.disabled = true;
+    applyButton.textContent = 'Updating metadata…';
+  }
+  if (reportBox) {
+    reportBox.hidden = false;
+    reportBox.innerHTML = '<p class="metadata-loading">Updating metadata. I may need a moment to generate title, summary, or tags…</p>';
+  }
+  try {
+    const result = await fetchJson('/api/conversations/metadata-lifecycle-apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: section.dataset.conversationId,
+      }),
+    });
+    content.innerHTML = renderConversationDetail(result.conversation);
+    const nextReportBox = content.querySelector('[data-metadata-report]');
+    if (nextReportBox) {
+      nextReportBox.hidden = false;
+      nextReportBox.innerHTML = renderMetadataLifecycleReport(result.report);
+    }
+    showWarning(result.report?.mutated ? 'Metadata update applied.' : 'No metadata changes applied.');
+  } catch (error) {
+    if (applyButton) {
+      applyButton.disabled = false;
+      applyButton.textContent = 'Apply metadata update';
+    }
+    if (reportBox) reportBox.innerHTML = `<p>${escapeHtml(String(error.message || error))}</p>`;
+  }
+}
+
+function renderMetadataLifecycleReport(report) {
+  const fields = report.fields || report.dry_run?.fields || {};
+  const didChange = Boolean(report.mutated);
+  const fieldRows = Object.entries(fields).map(([name, field]) => {
+    const status = metadataFieldStatus(field.decision);
+    return `
+      <li class="metadata-field metadata-field-${escapeHtml(status.kind)}">
+        <div class="metadata-field-head">
+          <strong>${escapeHtml(metadataFieldLabel(name))}</strong>
+          <span class="metadata-status-badge">${escapeHtml(status.label)}</span>
+        </div>
+        <span>${escapeHtml(metadataDecisionCopy(field.decision, name, field.reason))}</span>
+        ${field.reason ? `<small>${escapeHtml(metadataReasonCopy(field.reason))}</small>` : ''}
+      </li>
+    `;
+  }).join('');
+  const changedRows = report.changed ? Object.entries(report.changed).map(([name, value]) => `
+    <li><strong>${escapeHtml(metadataFieldLabel(name))}</strong>: ${escapeHtml(Array.isArray(value) ? value.join(', ') : String(value))}</li>
+  `).join('') : '';
+  const skippedRows = report.skipped ? Object.entries(report.skipped).map(([name, reason]) => `
+    <li><strong>${escapeHtml(metadataFieldLabel(name))}</strong>: ${escapeHtml(metadataSkipCopy(reason))}</li>
+  `).join('') : '';
+  return `
+    <article class="operation-result-card">
+      <p class="eyebrow">Conversation metadata</p>
+      <h3>${didChange ? 'I updated this conversation.' : 'I checked this conversation.'}</h3>
+      <p>${didChange ? 'Here is what changed and what I left untouched.' : 'No changes were made. Here is what I would do right now.'}</p>
+      ${fieldRows ? `<ul>${fieldRows}</ul>` : ''}
+      ${changedRows ? `<p><strong>I updated</strong></p><ul>${changedRows}</ul>` : ''}
+      ${skippedRows ? `<p><strong>I left untouched</strong></p><ul>${skippedRows}</ul>` : ''}
+    </article>
+  `;
+}
+
+function metadataFieldStatus(decision) {
+  if (['create', 'repair'].includes(decision)) return { kind: 'will-update', label: 'Will update' };
+  if (decision === 'refine_candidate') return { kind: 'review', label: 'Review suggested' };
+  if (['keep', 'preserve'].includes(decision)) return { kind: 'unchanged', label: 'No change' };
+  if (decision === 'defer') return { kind: 'defer', label: 'Not ready' };
+  return { kind: 'unknown', label: 'Check' };
+}
+
+function metadataFieldLabel(name) {
+  if (name === 'title') return 'Title';
+  if (name === 'summary') return 'Summary';
+  if (name === 'tags') return 'Tags';
+  return name;
+}
+
+function metadataDecisionCopy(decision, fieldName = '', reason = '') {
+  if (decision === 'refine_candidate' && fieldName === 'title') {
+    return 'I found a possible improvement, but I will not apply it automatically. Use “Suggest title” below if you want me to propose a better title.';
+  }
+  if (decision === 'refine_candidate' && fieldName === 'summary') {
+    return 'I found a possible better summary, but I will not replace it automatically. Use “Suggest summary” below if you want me to propose a better summary.';
+  }
+  if (decision === 'defer' && fieldName === 'tags') {
+    return 'I need more usable conversation substance before I create tags.';
+  }
+  const copy = {
+    repair: 'I can improve this now.',
+    create: 'I can create this now.',
+    keep: 'This already looks good.',
+    preserve: 'I will preserve your manual edit.',
+    defer: 'I need more conversation context first.',
+    refine_candidate: 'I found a possible improvement, but I will not apply it automatically.',
+  };
+  return copy[decision] || 'I am not sure what to do with this yet.';
+}
+
+function metadataReasonCopy(reason) {
+  const copy = {
+    'conversation has no title': 'This conversation does not have a title yet.',
+    'current title is provisional or weak': 'The current title still looks provisional.',
+    'conversation needs at least one user and one assistant message': 'I need at least one exchange before I can judge the title.',
+    'later evidence is more specific than the current unlocked title': 'Later messages are more specific than the current title.',
+    'conversation has enough later context for coherence refinement': 'There is enough later context to revisit the title.',
+    'current title appears usable': 'The current title is usable.',
+    'manual title lock is preserved': 'You edited this manually, so I will not overwrite it.',
+    'stored summary needs editorial refinement': 'The current summary looks too much like raw transcript text. A good summary should be one or two clean paragraphs, without Markdown, bullets, paths, or copied message fragments.',
+    'summary already exists': 'A summary already exists.',
+    'conversation has enough substance for a summary': 'There is enough conversation substance for a useful summary.',
+    'summary needs more conversation substance': 'There is not enough substance for a useful summary yet.',
+    'tags already exist': 'Tags already exist for this conversation.',
+    'summary-level substance is available for tags': 'There is enough conversation substance to create tags.',
+    'conversation has enough substance for tags': 'There is enough conversation substance to create tags.',
+    'summary needs review before tags': 'There is enough conversation substance to create tags.',
+    'tags need more conversation substance': 'I need more conversation substance before creating tags.',
+  };
+  return copy[reason] || reason;
+}
+
+function metadataSkipCopy(reason) {
+  const copy = {
+    no_value_provided: 'No new value was provided.',
+    manual_lock_preserved: 'You edited this manually, so I preserved it.',
+    candidate_decision_requires_explicit_review: 'This needs explicit human review before changing.',
+    decision_defer_not_applied: 'Not enough context yet.',
+    decision_keep_not_applied: 'It already looks good.',
+    decision_preserve_not_applied: 'It is protected from automatic changes.',
+    blank_value: 'The provided value was blank.',
+  };
+  return copy[reason] || reason;
+}
+
+async function suggestConversationSummary(form) {
+  if (!form) return;
+  const suggestionBox = form.querySelector('[data-summary-suggestion]');
+  if (suggestionBox) {
+    suggestionBox.hidden = false;
+    suggestionBox.innerHTML = '<p>Generating a summary suggestion…</p>';
+  }
+  try {
+    const result = await fetchJson('/api/conversations/summary-suggestion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId: form.dataset.conversationId }),
+    });
+    const suggestion = result.suggestedSummary || '';
+    if (suggestionBox) {
+      suggestionBox.innerHTML = `
+        <p>${escapeHtml(suggestion)}</p>
+        <button type="button" class="secondary-action" data-use-summary-suggestion="${escapeHtml(suggestion)}">Use suggestion</button>
+        <small>Suggestion only. It is not saved until you click Save summary.</small>
+      `;
+    }
+  } catch (error) {
+    if (suggestionBox) suggestionBox.innerHTML = `<p>${escapeHtml(String(error.message || error))}</p>`;
+  }
+}
+
 async function suggestConversationTitle(form) {
   if (!form) return;
   const suggestionBox = form.querySelector('[data-title-suggestion]');
@@ -1843,6 +2176,40 @@ async function suggestConversationTitle(form) {
 }
 
 content.addEventListener('submit', async (event) => {
+  const summaryForm = event.target.closest('[data-conversation-summary-form]');
+  if (summaryForm) {
+    event.preventDefault();
+    const data = new FormData(summaryForm);
+    const detail = await fetchJson('/api/conversations/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: summaryForm.dataset.conversationId,
+        summary: String(data.get('summary') || ''),
+      }),
+    });
+    content.innerHTML = renderConversationDetail(detail);
+    showWarning('Conversation summary saved.');
+    return;
+  }
+
+  const tagsForm = event.target.closest('[data-conversation-tags-form]');
+  if (tagsForm) {
+    event.preventDefault();
+    const data = new FormData(tagsForm);
+    const detail = await fetchJson('/api/conversations/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: tagsForm.dataset.conversationId,
+        tags: String(data.get('tags') || ''),
+      }),
+    });
+    content.innerHTML = renderConversationDetail(detail);
+    showWarning('Conversation tags saved.');
+    return;
+  }
+
   const titleForm = event.target.closest('[data-conversation-title-form]');
   if (titleForm) {
     event.preventDefault();

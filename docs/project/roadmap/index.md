@@ -44,9 +44,11 @@ Visibility (CV9.E6) is complete: the read-only Identity and Workspace
 perspectives were validated against the personal Mirror, including a repaired Pi
 Builder journey-association bug that had made Workspace conversation data look
 stale. Stabilization now includes production updater resilience and conversation
-title hardening, released in v0.16.1 and v0.17.0 respectively. Boundary
-Hardening and the remaining stabilization stories are still open before the full
-CV9 done condition is met.
+title hardening, released in v0.16.1 and v0.17.0 respectively. Conversation
+metadata lifecycle has entered Delivery as CV9.DS7; its dry-run decision path
+and evidence-based policy are done, with apply behavior still remaining.
+Boundary Hardening and the remaining stabilization stories are still open before
+the full CV9 done condition is met.
 
 ---
 

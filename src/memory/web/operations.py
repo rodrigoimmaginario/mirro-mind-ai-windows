@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import sys
 import time
@@ -186,6 +187,114 @@ OPERATION_CATALOG: tuple[WebOperation, ...] = (
         ),
     ),
     WebOperation(
+        id="historical-metadata-backfill",
+        title="Historical metadata backfill",
+        description="Preview or apply title, summary, and tag backfill for legacy conversations with safe/force modes.",
+        category="conversations",
+        risk_level="external_llm",
+        dry_run="required",
+        execution="runnable",
+        parameters=(
+            OperationParameter(
+                name="dryRun",
+                label="Dry run",
+                kind="boolean",
+                description="Preview metadata backfill candidates without changing conversations.",
+                default=True,
+            ),
+            OperationParameter(
+                name="mode",
+                label="Backfill mode",
+                kind="choice",
+                description="Safe fills clear candidates; force regenerates selected non-manual metadata.",
+                default="safe",
+                choices=("safe", "force"),
+            ),
+            OperationParameter(
+                name="scope",
+                label="Backfill scope",
+                kind="choice",
+                description="All candidates, only conversations not marked as backfilled, or latest no-change run items.",
+                default="all",
+                choices=("all", "not_backfilled", "no_change_latest_run"),
+            ),
+            OperationParameter(
+                name="allConversations",
+                label="All conversations",
+                kind="boolean",
+                description="Ignore the limit and process all matching conversations.",
+                default=False,
+            ),
+            OperationParameter(
+                name="limit",
+                label="Maximum conversations",
+                kind="integer",
+                description="Maximum number of conversations to preview or apply when All conversations is off.",
+                default=10,
+                minimum=1,
+                maximum=100,
+            ),
+            OperationParameter(
+                name="journey",
+                label="Journey filter",
+                kind="string",
+                description="Optional journey id or slug used to limit the batch.",
+                required=False,
+            ),
+        ),
+    ),
+    WebOperation(
+        id="orphan-conversation-cleanup",
+        title="Orphan conversation cleanup",
+        description="Preview or delete conversations with no journey, optionally limited to no-change items from the latest metadata backfill run.",
+        category="conversations",
+        risk_level="writes_database",
+        dry_run="required",
+        execution="runnable",
+        parameters=(
+            OperationParameter(
+                name="dryRun",
+                label="Dry run",
+                kind="boolean",
+                description="Preview orphan conversations without deleting anything.",
+                default=True,
+            ),
+            OperationParameter(
+                name="source",
+                label="Cleanup source",
+                kind="choice",
+                description="Limit cleanup to latest backfill no-change orphan conversations or all orphan conversations.",
+                default="no_change_latest_backfill",
+                choices=("no_change_latest_backfill", "all_orphans"),
+            ),
+            OperationParameter(
+                name="allConversations",
+                label="All conversations",
+                kind="boolean",
+                description="Ignore the limit and include all matching orphan conversations.",
+                default=False,
+            ),
+            OperationParameter(
+                name="limit",
+                label="Maximum conversations",
+                kind="integer",
+                description="Maximum orphan conversations to preview or delete when All conversations is off.",
+                default=50,
+                minimum=1,
+                maximum=1000,
+            ),
+            OperationParameter(
+                name="maximumMessages",
+                label="Maximum messages",
+                kind="integer",
+                description="Only include orphan conversations with this many messages or fewer.",
+                default=3,
+                minimum=0,
+                maximum=20,
+            ),
+        ),
+    ),
+    WebOperation(
         id="batch-conversation-retitle",
         title="Batch conversation retitle",
         description="Suggest improved titles for older conversations using an LLM, with limits, preview, and approval before database writes.",
@@ -264,6 +373,18 @@ def run_operation(
     if operation.id == "conversation-journey-repair":
         return _run_conversation_journey_repair(
             mirror_home=mirror_home, parameters=parsed_parameters
+        )
+    if operation.id == "historical-metadata-backfill":
+        return _run_historical_metadata_backfill(
+            mirror_home=mirror_home,
+            parameters=parsed_parameters,
+            emit_event=emit_event,
+        )
+    if operation.id == "orphan-conversation-cleanup":
+        return _run_orphan_conversation_cleanup(
+            mirror_home=mirror_home,
+            parameters=parsed_parameters,
+            emit_event=emit_event,
         )
     if operation.id == "batch-conversation-retitle":
         return _run_batch_conversation_retitle(
@@ -452,6 +573,325 @@ def _run_conversation_journey_repair(
         ],
         "result": result,
     }
+
+
+def _run_historical_metadata_backfill(
+    *,
+    mirror_home: Path | None,
+    parameters: dict[str, object],
+    emit_event: Callable[[str, str, dict[str, object] | None], None] | None,
+) -> dict[str, object]:
+    if mirror_home is None:
+        raise ValueError("Mirror home is required for historical metadata backfill")
+
+    dry_run = bool(parameters.get("dryRun", True))
+    mode = str(parameters.get("mode", "safe"))
+    scope = str(parameters.get("scope", "all"))
+    all_conversations = bool(parameters.get("allConversations", False))
+    limit = 100000 if all_conversations else int(parameters.get("limit", 10))
+    journey = str(parameters["journey"]).strip() if parameters.get("journey") else None
+
+    with MemoryClient(db_path=db_path_from_mirror_home(mirror_home)) as mem:
+        preview = mem.conversations.preview_metadata_backfill(
+            mode=mode,
+            limit=limit,
+            journey=journey,
+        )
+        preview = _filter_metadata_backfill_preview(mem, preview, scope=scope)
+
+    result: dict[str, object] = {
+        "preview": preview,
+        "apply": None,
+        "backupPath": None,
+    }
+
+    if dry_run or not preview["candidate_count"]:
+        outcome = "dry_run" if dry_run else "no_candidates"
+        return {
+            "operationId": "historical-metadata-backfill",
+            "status": "completed",
+            "outcome": outcome,
+            "summary": [
+                f"Backfill mode: {mode}",
+                f"Scope: {'all matching conversations' if all_conversations else f'limit {limit}'}",
+                f"Candidates in this batch: {preview['candidate_count']}",
+                "No conversations changed.",
+            ],
+            "result": result,
+        }
+
+    if emit_event is not None:
+        emit_event(
+            "progress",
+            f"Preparing metadata backfill for {preview['candidate_count']} conversation(s).",
+            {"candidateCount": preview["candidate_count"], "mode": mode},
+        )
+
+    backup_path = create_backup(silent=True, mirror_home=mirror_home)
+    if backup_path is None:
+        raise ValueError("Database backup failed; refusing metadata backfill")
+    if emit_event is not None:
+        emit_event("progress", f"Backup created: {backup_path}", {"backupPath": str(backup_path)})
+
+    profile_name = str(preview["profile"])
+    results: list[dict[str, object]] = []
+    changed_count = 0
+    with MemoryClient(db_path=db_path_from_mirror_home(mirror_home)) as mem:
+        for index, candidate in enumerate(preview["candidates"], start=1):
+            result_item = mem.conversations.apply_generated_metadata_lifecycle(
+                str(candidate["conversation_id"]),
+                source="metadata_backfill_apply",
+                profile_name=profile_name,
+            )
+            results.append(result_item)
+            if result_item["mutated"]:
+                changed_count += 1
+            if emit_event is not None:
+                changed_fields = sorted((result_item.get("changed") or {}).keys())
+                emit_event(
+                    "progress",
+                    f"Backfilled {index}/{preview['candidate_count']}: {candidate['conversation_id']} ({', '.join(changed_fields) or 'no changes'}).",
+                    {
+                        "conversationId": candidate["conversation_id"],
+                        "index": index,
+                        "total": preview["candidate_count"],
+                        "changedFields": changed_fields,
+                    },
+                )
+    apply = {
+        "mode": "metadata_backfill_apply",
+        "backfill_mode": mode,
+        "profile": profile_name,
+        "mutated": changed_count > 0,
+        "limit": limit,
+        "journey": journey,
+        "candidate_count": preview["candidate_count"],
+        "changed_count": changed_count,
+        "results": results,
+    }
+
+    if emit_event is not None:
+        emit_event(
+            "progress",
+            f"Metadata backfill changed {changed_count} conversation(s).",
+            {"changedCount": changed_count, "candidateCount": preview["candidate_count"]},
+        )
+
+    result["apply"] = apply
+    result["backupPath"] = str(backup_path)
+    return {
+        "operationId": "historical-metadata-backfill",
+        "status": "completed",
+        "outcome": "applied",
+        "summary": [
+            f"Backfill mode: {mode}",
+            f"Scope: {'all matching conversations' if all_conversations else f'limit {limit}'}",
+            f"Candidates in this batch: {apply['candidate_count']}",
+            f"Changed conversations: {apply['changed_count']}",
+            f"Backup created: {backup_path}",
+        ],
+        "result": result,
+    }
+
+
+def _filter_metadata_backfill_preview(
+    mem: MemoryClient, preview: dict[str, object], *, scope: str
+) -> dict[str, object]:
+    if scope == "all":
+        preview["scope"] = scope
+        return preview
+    candidates = list(preview.get("candidates", []))
+    if scope == "not_backfilled":
+        candidates = [
+            candidate
+            for candidate in candidates
+            if not _conversation_marked_backfilled(mem, str(candidate["conversation_id"]))
+        ]
+    elif scope == "no_change_latest_run":
+        no_change_ids = _latest_backfill_no_change_ids(mem)
+        candidates = [
+            candidate
+            for candidate in candidates
+            if str(candidate["conversation_id"]) in no_change_ids
+        ]
+    preview["scope"] = scope
+    preview["candidate_count"] = len(candidates)
+    preview["candidates"] = candidates
+    return preview
+
+
+def _conversation_marked_backfilled(mem: MemoryClient, conversation_id: str) -> bool:
+    conversation = mem.store.get_conversation(conversation_id)
+    if conversation is None:
+        return False
+    metadata = _conversation_metadata(conversation.metadata)
+    sources = {
+        metadata.get("last_metadata_update_source"),
+        metadata.get("title_source"),
+        metadata.get("summary_source"),
+        metadata.get("tags_source"),
+    }
+    return "metadata_backfill_apply" in sources
+
+
+def _latest_backfill_no_change_ids(mem: MemoryClient) -> set[str]:
+    for run in mem.operation_runs.recent(100):
+        if run.operation_id != "historical-metadata-backfill":
+            continue
+        results = ((run.result or {}).get("apply") or {}).get("results") or []
+        if results:
+            return {str(item["conversation_id"]) for item in results if not item.get("mutated")}
+    return set()
+
+
+def _conversation_metadata(raw: str | None) -> dict[str, object]:
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _run_orphan_conversation_cleanup(
+    *,
+    mirror_home: Path | None,
+    parameters: dict[str, object],
+    emit_event: Callable[[str, str, dict[str, object] | None], None] | None = None,
+) -> dict[str, object]:
+    if mirror_home is None:
+        raise ValueError("Mirror home is required for orphan conversation cleanup")
+
+    dry_run = bool(parameters.get("dryRun", True))
+    source = str(parameters.get("source", "no_change_latest_backfill"))
+    all_conversations = bool(parameters.get("allConversations", False))
+    limit = 100000 if all_conversations else int(parameters.get("limit", 50))
+    maximum_messages = int(parameters.get("maximumMessages", 3))
+    db_path = db_path_from_mirror_home(mirror_home)
+
+    with MemoryClient(db_path=db_path) as mem:
+        candidates = _orphan_cleanup_candidates(
+            mem, source=source, limit=limit, maximum_messages=maximum_messages
+        )
+
+    result: dict[str, object] = {
+        "source": source,
+        "candidateCount": len(candidates),
+        "deletedCount": 0,
+        "maximumMessages": maximum_messages,
+        "candidates": candidates,
+        "backupPath": None,
+    }
+    if dry_run or not candidates:
+        return {
+            "operationId": "orphan-conversation-cleanup",
+            "status": "completed",
+            "outcome": "dry_run" if dry_run else "no_candidates",
+            "summary": [
+                f"Cleanup source: {source}",
+                f"Orphan candidates: {len(candidates)}",
+                "No conversations deleted.",
+            ],
+            "result": result,
+        }
+
+    if emit_event is not None:
+        emit_event(
+            "progress",
+            f"Preparing to delete {len(candidates)} orphan conversation(s).",
+            {"candidateCount": len(candidates)},
+        )
+    backup_path = create_backup(silent=True, mirror_home=mirror_home)
+    if backup_path is None:
+        raise ValueError("Database backup failed; refusing orphan conversation cleanup")
+    if emit_event is not None:
+        emit_event("progress", f"Backup created: {backup_path}", {"backupPath": str(backup_path)})
+    with MemoryClient(db_path=db_path) as mem:
+        for index, candidate in enumerate(candidates, start=1):
+            conversation_id = str(candidate["conversationId"])
+            mem.store.conn.execute(
+                "DELETE FROM messages WHERE conversation_id = ?", (conversation_id,)
+            )
+            mem.store.conn.execute(
+                "DELETE FROM conversation_embeddings WHERE conversation_id = ?", (conversation_id,)
+            )
+            mem.store.conn.execute(
+                "UPDATE memories SET conversation_id = NULL WHERE conversation_id = ?",
+                (conversation_id,),
+            )
+            mem.store.conn.execute(
+                "UPDATE llm_calls SET conversation_id = NULL WHERE conversation_id = ?",
+                (conversation_id,),
+            )
+            mem.store.conn.execute(
+                "UPDATE runtime_sessions SET conversation_id = NULL WHERE conversation_id = ?",
+                (conversation_id,),
+            )
+            mem.store.conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
+            mem.store.conn.commit()
+            if emit_event is not None:
+                emit_event(
+                    "progress",
+                    f"Deleted {index}/{len(candidates)} orphan conversation(s): {conversation_id}.",
+                    {"conversationId": conversation_id, "index": index, "total": len(candidates)},
+                )
+    result["deletedCount"] = len(candidates)
+    result["backupPath"] = str(backup_path)
+    return {
+        "operationId": "orphan-conversation-cleanup",
+        "status": "completed",
+        "outcome": "deleted",
+        "summary": [
+            f"Cleanup source: {source}",
+            f"Deleted conversations: {len(candidates)}",
+            f"Backup created: {backup_path}",
+        ],
+        "result": result,
+    }
+
+
+def _orphan_cleanup_candidates(
+    mem: MemoryClient, *, source: str, limit: int, maximum_messages: int
+) -> list[dict[str, object]]:
+    allowed_ids = (
+        _latest_backfill_no_change_ids(mem) if source == "no_change_latest_backfill" else None
+    )
+    rows = mem.store.conn.execute(
+        """
+        SELECT c.id, c.title, c.started_at, c.interface, c.persona, c.journey,
+               COUNT(m.id) AS message_count,
+               (SELECT COUNT(*) FROM memories WHERE conversation_id = c.id) AS memory_count,
+               (SELECT COUNT(*) FROM llm_calls WHERE conversation_id = c.id) AS llm_call_count,
+               (SELECT COUNT(*) FROM runtime_sessions WHERE conversation_id = c.id) AS runtime_session_count
+          FROM conversations c
+          LEFT JOIN messages m ON m.conversation_id = c.id
+         WHERE (c.journey IS NULL OR c.journey = '')
+         GROUP BY c.id
+        HAVING message_count <= ?
+         ORDER BY c.started_at DESC
+         LIMIT ?
+        """,
+        (maximum_messages, limit),
+    ).fetchall()
+    candidates = []
+    for row in rows:
+        if allowed_ids is not None and row["id"] not in allowed_ids:
+            continue
+        candidates.append(
+            {
+                "conversationId": row["id"],
+                "title": row["title"],
+                "startedAt": row["started_at"],
+                "interface": row["interface"],
+                "persona": row["persona"],
+                "messageCount": row["message_count"],
+                "memoryCount": row["memory_count"],
+                "llmCallCount": row["llm_call_count"],
+                "runtimeSessionCount": row["runtime_session_count"],
+            }
+        )
+    return candidates
 
 
 def _run_batch_conversation_retitle(

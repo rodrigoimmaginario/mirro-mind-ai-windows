@@ -100,6 +100,7 @@ class JourneyService:
         sync_file: str | None = None,
         icon: str | None = None,
         color: str | None = None,
+        parent_journey: str | None = None,
     ) -> Identity:
         """Create a journey identity with optional display/runtime metadata."""
         clean_slug = _validate_slug(slug)
@@ -119,6 +120,8 @@ class JourneyService:
             sync_file=sync_file,
             icon=icon,
             color=color,
+            parent_journey=parent_journey,
+            journey=clean_slug,
         )
         return self.identity.set_identity(
             JOURNEY_LAYER,
@@ -177,6 +180,10 @@ class JourneyService:
 
         Returns dicts with: id, name, description (first 150 chars).
         """
+        return [journey for journey in self.list_journeys() if journey["status"] == "active"]
+
+    def list_journeys(self) -> list[dict]:
+        """Return compact journey DTOs for display surfaces."""
         journeys = self._get_journey_identities()
         result = []
         for journey in journeys:
@@ -184,8 +191,6 @@ class JourneyService:
             first_line = content.split("\n")[0].strip().lstrip("# ").strip()
             status_match = re.search(r"\*\*Status:\*\*\s*(\w+)", content)
             status = status_match.group(1) if status_match else "unknown"
-            if status != "active":
-                continue
             desc_match = re.search(
                 r"## (?:Description|Descrição)\s*\n+(.+?)(?:\n\n|\n##)",
                 content,
@@ -197,6 +202,7 @@ class JourneyService:
                     "id": journey.key,
                     "name": first_line,
                     "description": description,
+                    "status": status,
                     "metadata": _metadata_dict(journey.metadata),
                 }
             )
@@ -286,6 +292,46 @@ class JourneyService:
         semantic_matches.sort(key=lambda x: x[1], reverse=True)
         return semantic_matches
 
+    def list_journey_options(self) -> list[dict[str, str]]:
+        """Return all journeys as option DTOs with hierarchy metadata."""
+        options: list[dict[str, str]] = []
+        for identity in self._get_journey_identities():
+            content = identity.content or ""
+            first_line = content.split("\n")[0].strip().lstrip("# ").strip()
+            status_match = re.search(r"\*\*Status:\*\*\s*([^\n]+)", content)
+            status = status_match.group(1).strip() if status_match else "unknown"
+            metadata = _metadata_dict(identity.metadata)
+            parent = metadata.get("parent_journey")
+            options.append(
+                {
+                    "id": identity.key,
+                    "name": first_line or identity.key,
+                    "status": status,
+                    "parent_journey": parent if isinstance(parent, str) else "",
+                }
+            )
+        return self._sort_journey_options(options)
+
+    def _sort_journey_options(self, options: list[dict[str, str]]) -> list[dict[str, str]]:
+        by_id = {option["id"]: option for option in options}
+        children: dict[str, list[dict[str, str]]] = {}
+        roots: list[dict[str, str]] = []
+        for option in options:
+            parent = option.get("parent_journey") or ""
+            if parent and parent in by_id:
+                children.setdefault(parent, []).append(option)
+            else:
+                roots.append(option)
+
+        def sort_key(item: dict[str, str]) -> tuple[bool, str]:
+            return (item.get("status") != "active", item.get("name", "").lower())
+
+        ordered: list[dict[str, str]] = []
+        for root in sorted(roots, key=sort_key):
+            ordered.append(root)
+            ordered.extend(sorted(children.get(root["id"], []), key=sort_key))
+        return ordered
+
     def get_project_path(self, journey: str) -> str | None:
         """Return the project path configured for a journey."""
         ident = self._get_journey_identity(journey)
@@ -335,12 +381,42 @@ class JourneyService:
         meta["sync_file"] = file_path
         self.store.update_identity_metadata(ident.layer, journey, json.dumps(meta))
 
+    def update_identity_fields(
+        self,
+        journey: str,
+        *,
+        title: str | None = None,
+        status: str | None = None,
+    ) -> Identity:
+        """Update safe display fields inside the journey identity markdown."""
+        ident = self._get_journey_identity(journey)
+        if not ident:
+            raise ValueError(f"Journey '{journey}' not found.")
+        content = ident.content or ""
+        if title is not None:
+            clean_title = title.strip()
+            if not clean_title:
+                raise ValueError("title is required")
+            if len(clean_title) > 160:
+                raise ValueError("title must be at most 160 characters")
+            content = self._replace_title(content, clean_title)
+        if status is not None:
+            clean_status = self._validate_status(status)
+            content = self._replace_status(content, clean_status)
+        return self.identity.set_identity(
+            JOURNEY_LAYER,
+            journey,
+            content,
+            version=ident.version,
+            metadata=ident.metadata,
+        )
+
     def update_metadata_fields(self, journey: str, fields: dict[str, str]) -> dict:
         """Update selected safe metadata fields for a journey."""
         ident = self._get_journey_identity(journey)
         if not ident:
             raise ValueError(f"Journey '{journey}' not found.")
-        allowed = {"project_path", "sync_file", "icon", "color"}
+        allowed = {"project_path", "sync_file", "icon", "color", "parent_journey"}
         unknown = set(fields) - allowed
         if unknown:
             raise ValueError(f"Unsupported journey metadata field: {sorted(unknown)[0]}")
@@ -354,12 +430,32 @@ class JourneyService:
             value = value.strip()
             if len(value) > 500:
                 raise ValueError(f"{key} must be at most 500 characters")
+            if key == "parent_journey":
+                self._validate_parent_journey(journey, value or None)
             if value:
                 meta[key] = value
             else:
                 meta.pop(key, None)
         self.store.update_identity_metadata(ident.layer, journey, json.dumps(meta, sort_keys=True))
         return meta
+
+    def _replace_title(self, content: str, title: str) -> str:
+        lines = content.splitlines()
+        for index, line in enumerate(lines):
+            if line.startswith("# "):
+                lines[index] = f"# {title}"
+                return "\n".join(lines).strip()
+        return f"# {title}\n\n{content.strip()}".strip()
+
+    def _replace_status(self, content: str, status: str) -> str:
+        lines = content.splitlines()
+        for index, line in enumerate(lines):
+            if line.startswith("**Status:**"):
+                lines[index] = f"**Status:** {status}"
+                return "\n".join(lines).strip()
+        if lines and lines[0].startswith("# "):
+            return "\n".join([lines[0], f"**Status:** {status}", *lines[1:]]).strip()
+        return f"**Status:** {status}\n\n{content.strip()}".strip()
 
     def _validate_status(self, status: str) -> str:
         allowed = {"active", "completed", "paused", "planned"}
@@ -416,21 +512,49 @@ class JourneyService:
         sync_file: str | None,
         icon: str | None,
         color: str | None,
+        parent_journey: str | None = None,
+        journey: str | None = None,
     ) -> dict:
         fields = {
             "project_path": project_path or "",
             "sync_file": sync_file or "",
             "icon": icon or "",
             "color": color or "",
+            "parent_journey": parent_journey or "",
         }
         metadata: dict[str, str] = {}
         for key, value in fields.items():
             clean = value.strip() if isinstance(value, str) else ""
             if len(clean) > 500:
                 raise ValueError(f"{key} must be at most 500 characters")
+            if key == "parent_journey" and clean:
+                self._validate_parent_journey(journey, clean)
             if clean:
                 metadata[key] = clean
         return metadata
+
+    def _validate_parent_journey(self, journey: str | None, parent_journey: str | None) -> None:
+        if not parent_journey:
+            return
+        if journey and parent_journey == journey:
+            raise ValueError("parent_journey cannot be the journey itself")
+        parent = self._get_journey_identity(parent_journey)
+        if not parent:
+            raise ValueError(f"Parent journey '{parent_journey}' not found")
+        parent_meta = _metadata_dict(parent.metadata)
+        if parent_meta.get("parent_journey"):
+            raise ValueError("Only one hierarchy level is supported")
+        if journey and self._journey_has_children(journey):
+            raise ValueError("Journeys with child journeys cannot also have a parent")
+
+    def _journey_has_children(self, journey: str) -> bool:
+        for identity in self._get_journey_identities():
+            if identity.key == journey:
+                continue
+            metadata = _metadata_dict(identity.metadata)
+            if metadata.get("parent_journey") == journey:
+                return True
+        return False
 
     def _get_journey_identities(self) -> list[Identity]:
         return self.store.get_identity_by_layer(JOURNEY_LAYER)

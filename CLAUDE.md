@@ -32,7 +32,9 @@ reflection or project construction.
 
 **Journey Status** — shortcut within Mirror Mode. Activate when the user asks
 "How are we doing?", "What's the status of X?", or any question about progress
-or roadmap. Dispatch to `/mm-journey` or `/mm-journeys`.
+or roadmap. Dispatch to `/mm-journey` or `/mm-journeys`. When the user asks for
+the journey list in natural language, use `/mm-journeys` and preserve its
+hierarchical rendering without flattening or reformatting it.
 
 **Commits:** use descriptive English commit messages. Explain the WHY, not just
 what was done. Prefer small commits with clear review boundaries.

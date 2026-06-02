@@ -859,6 +859,8 @@ def test_journey_draft_api_generates_reviewable_markdown(tmp_path: Path) -> None
 
 def test_journey_create_api_persists_identity_and_metadata(tmp_path: Path) -> None:
     mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        mem.identity.set_identity("journey", "parent", "# Parent\n**Status:** active")
     content = """# Customer Discovery
 **Status:** active
 **Stage:** Starting
@@ -886,6 +888,7 @@ Interview five users.
                 "icon": "◇",
                 "color": "violet",
                 "projectPath": "/tmp/customer-discovery",
+                "parentJourney": "parent",
             },
         )
     finally:
@@ -901,7 +904,8 @@ Interview five users.
         assert metadata["icon"] == "◇"
         assert metadata["color"] == "violet"
         assert metadata["project_path"] == "/tmp/customer-discovery"
-        assert mem.journeys.list_active_journeys()[0]["id"] == "customer-discovery"
+        assert metadata["parent_journey"] == "parent"
+        assert "customer-discovery" in {item["id"] for item in mem.journeys.list_active_journeys()}
 
 
 def test_journey_create_api_rejects_duplicate_slug(tmp_path: Path) -> None:
@@ -933,6 +937,61 @@ A journey for validating customer interviews and product positioning.
     assert "already exists" in payload["error"]
 
 
+def test_journey_metadata_api_updates_title_status_and_parent_journey(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        mem.identity.set_identity("journey", "parent", "# Parent\n**Status:** active")
+        mem.identity.set_identity("journey", "child", "# Child\n**Status:** active")
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/journeys/metadata",
+            {
+                "journeyId": "child",
+                "title": "Renamed Child",
+                "status": "paused",
+                "parentJourney": "parent",
+            },
+        )
+    finally:
+        server.close()
+
+    assert status == 200
+    assert payload["metadata"]["parent_journey"] == "parent"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        identity = mem.store.get_identity("journey", "child")
+        assert identity.content.startswith("# Renamed Child\n**Status:** paused")
+        metadata = json.loads(identity.metadata)
+        assert metadata["parent_journey"] == "parent"
+
+
+def test_journey_metadata_api_rejects_invalid_parent_journey(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        mem.identity.set_identity("journey", "child", "# Child\n**Status:** active")
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/journeys/metadata",
+            {"journeyId": "child", "parentJourney": "missing"},
+        )
+    finally:
+        server.close()
+
+    assert status == 400
+    assert "Parent journey 'missing' not found" in payload["error"]
+
+
 def test_unassigned_conversations_api_lists_conversations_without_journey(tmp_path: Path) -> None:
     mirror_home = tmp_path / "mirror-home"
     with MemoryClient(db_path=mirror_home / "memory.db") as mem:
@@ -955,6 +1014,31 @@ def test_unassigned_conversations_api_lists_conversations_without_journey(tmp_pa
     assert status == 200
     assert payload["count"] == 1
     assert payload["cards"][0]["id"] == unassigned.id
+
+
+def test_unassigned_conversations_api_includes_parent_journey_options(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    with MemoryClient(db_path=mirror_home / "memory.db") as mem:
+        mem.identity.set_identity("journey", "parent", "# Parent\n**Status:** active")
+        mem.identity.set_identity(
+            "journey",
+            "child",
+            "# Child\n**Status:** active",
+            metadata='{"parent_journey": "parent"}',
+        )
+    server = WebTestServer(
+        root=make_docs_root(tmp_path),
+        mirror_home=mirror_home,
+        db_path=mirror_home / "memory.db",
+    )
+    try:
+        status, payload = server.request("GET", "/api/conversations/unassigned?limit=20")
+    finally:
+        server.close()
+
+    assert status == 200
+    child = next(journey for journey in payload["journeys"] if journey["id"] == "child")
+    assert child["parent_journey"] == "parent"
 
 
 def test_unassigned_conversations_api_includes_completed_journey_options(tmp_path: Path) -> None:

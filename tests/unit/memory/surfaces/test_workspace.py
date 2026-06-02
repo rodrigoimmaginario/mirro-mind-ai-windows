@@ -59,6 +59,7 @@ def test_workspace_home_surfaces_operational_sections(
     assert home.selected_journey.title == "Mirror Mind"
     assert home.journeys[0].id == "mirror-mind"
     assert home.journeys[0].metadata["icon"] == "◇"
+    assert home.journeys[0].metadata["parent_journey"] == ""
     assert metrics["active-journeys"].value == 1
     assert "open-tasks" not in metrics
     assert metrics["recent-conversations"].value == 1
@@ -70,10 +71,14 @@ def test_workspace_home_surfaces_operational_sections(
     assert sections["briefing"].metadata["content"].startswith("# Mirror Mind")
     assert "tasks" not in sections
     assert sections["settings"].metadata["settings"][0]["value"] == "mirror-mind"
-    assert sections["settings"].metadata["settings"][2]["value"] == "/code/mirror"
-    assert sections["settings"].metadata["settings"][3]["value"] == "/code/path.md"
-    assert sections["settings"].metadata["settings"][4]["value"] == "◇"
-    assert sections["settings"].metadata["settings"][5]["value"] == "amber"
+    assert sections["settings"].metadata["settings"][1]["value"] == "Mirror Mind"
+    assert sections["settings"].metadata["settings"][2]["value"] == "active"
+    assert sections["settings"].metadata["settings"][3]["value"] == "/code/mirror"
+    assert sections["settings"].metadata["settings"][4]["value"] == "/code/path.md"
+    assert sections["settings"].metadata["settings"][5]["value"] == "◇"
+    assert sections["settings"].metadata["settings"][6]["value"] == "amber"
+    assert sections["settings"].metadata["settings"][7]["value"] == "Not configured"
+    assert sections["settings"].metadata["journeyOptions"][0]["id"] == "mirror-mind"
     assert sections["attachments"].cards[0].title == "Launch brief"
     assert sections["attachments"].cards[0].description == "Reference brief for launch work."
     assert sections["attachments"].cards[0].metadata["content_type"] == "markdown"
@@ -154,6 +159,72 @@ def test_workspace_home_shows_more_than_eight_conversations_for_selected_journey
 
     sections = {section.id: section for section in home.sections}
     assert len(sections["conversations"].cards) == 12
+
+
+def test_workspace_home_includes_completed_journeys_for_optional_access(
+    identity_service,
+    journey_service,
+    memory_service,
+    conversation_service,
+    task_service,
+) -> None:
+    identity_service.set_identity(
+        "journey",
+        "active",
+        "# Active\n**Status:** active\n\n## Description\nActive journey.",
+    )
+    identity_service.set_identity(
+        "journey",
+        "completed",
+        "# Completed\n**Status:** completed\n\n## Description\nCompleted journey.",
+    )
+    surfaces = SurfaceService(
+        identity=identity_service,
+        journeys=journey_service,
+        memories=memory_service,
+        conversations=conversation_service,
+        tasks=task_service,
+    )
+
+    home = surfaces.workspace_home(journey_id="completed")
+
+    metrics = {metric.id: metric for metric in home.metrics}
+    assert {journey.id for journey in home.journeys} == {"active", "completed"}
+    assert metrics["active-journeys"].value == 1
+    assert home.selected_journey_id == "completed"
+    assert home.selected_journey.status == "completed"
+
+
+def test_workspace_home_exposes_parent_journey_metadata_for_sidebar_grouping(
+    identity_service,
+    journey_service,
+    memory_service,
+    conversation_service,
+    task_service,
+) -> None:
+    identity_service.set_identity(
+        "journey",
+        "parent",
+        "# Parent\n**Status:** active\n\n## Description\nParent journey.",
+    )
+    identity_service.set_identity(
+        "journey",
+        "child",
+        "# Child\n**Status:** active\n\n## Description\nChild journey.",
+        metadata='{"parent_journey": "parent"}',
+    )
+    surfaces = SurfaceService(
+        identity=identity_service,
+        journeys=journey_service,
+        memories=memory_service,
+        conversations=conversation_service,
+        tasks=task_service,
+    )
+
+    home = surfaces.workspace_home(journey_id="parent")
+
+    child = next(journey for journey in home.journeys if journey.id == "child")
+    assert child.metadata["parent_journey"] == "parent"
 
 
 def test_workspace_home_can_select_requested_active_journey(

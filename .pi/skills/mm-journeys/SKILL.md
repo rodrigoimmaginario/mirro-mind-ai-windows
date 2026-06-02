@@ -12,4 +12,4 @@ When receiving `/mm-journeys`:
 uv run python -m memory journeys
 ```
 
-The script prints a compact list of all journeys. Present the output without modification.
+The script prints a compact hierarchical list of all journeys, including parent/child indentation when configured. Present the output without modification so the hierarchy remains intact.

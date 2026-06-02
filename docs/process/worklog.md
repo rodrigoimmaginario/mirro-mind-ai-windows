@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-06-02 — v0.20.0 Hierarchical Journey Organization prepared
+
+Prepared `v0.20.0 — Hierarchical Journey Organization`, the first CV15 Cognitive Location release. Journeys now support one-level `parent_journey` metadata with guarded validation; the web console can set parent, title, and status in Journey Settings; New journey can assign a parent; Workspace renders parent/child journeys with session-persistent expand/collapse; paused and completed journeys are visually dimmed; completed journeys are hidden by default behind a toggle while preserving hierarchy when shown; and `mm-journeys` / `python -m memory journeys` render the hierarchy textually.
+
+Validation: Navigator manually validated web hierarchy behavior, parent assignment, title/status editing, completed toggle, paused/completed dimming, expand/collapse, and hierarchical journey-list output. Focused automated tests, ruff lint, ruff format check, JavaScript syntax check, and `git diff --check` passed before release packaging.
+
 ### 2026-06-02 — ES-002 promoted into CV15 Cognitive Location
 
 Promoted the Hierarchical Journeys exploration into CV15 Cognitive Location. The promoted capability is split into two release-sized stories: Hierarchical Journey Organization, intended for v0.20.0, and Scene Workspace Home, intended for v0.21.0. The split preserves a stable parent-journey foundation before adding the interpretive Scene surface and grounded LLM synthesis.

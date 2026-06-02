@@ -111,10 +111,125 @@ class TestJourneyServiceListActiveJourneys:
         result = journey_service.list_active_journeys()
         assert result == []
 
+    def test_includes_parent_journey_metadata(self, journey_service, identity_service):
+        identity_service.set_identity("journey", "parent", "# Parent\n**Status:** active")
+        identity_service.set_identity(
+            "journey",
+            "child",
+            "# Child\n**Status:** active",
+            metadata='{"parent_journey": "parent"}',
+        )
+        result = journey_service.list_active_journeys()
+        child = next(t for t in result if t["id"] == "child")
+        assert child["metadata"]["parent_journey"] == "parent"
+
     def test_does_not_fall_back_to_legacy_journey_layer(self, journey_service, identity_service):
         identity_service.set_identity("travessia", "legada", "# Legada\n**Status:** active")
         result = journey_service.list_active_journeys()
         assert result == []
+
+
+class TestJourneyServiceIdentityFields:
+    def test_update_identity_fields_updates_title_and_status(
+        self, journey_service, identity_service
+    ):
+        identity_service.set_identity(
+            "journey",
+            "mirror",
+            "# Old Title\n**Status:** active\n\n## Description\nA journey.",
+        )
+
+        journey_service.update_identity_fields("mirror", title="New Title", status="completed")
+
+        content = identity_service.get_identity("journey", "mirror")
+        assert content.startswith("# New Title\n**Status:** completed")
+
+    def test_update_identity_fields_rejects_empty_title(self, journey_service, identity_service):
+        identity_service.set_identity("journey", "mirror", "# Mirror\n**Status:** active")
+
+        with pytest.raises(ValueError, match="title is required"):
+            journey_service.update_identity_fields("mirror", title="")
+
+
+class TestJourneyServiceParentJourney:
+    def test_create_journey_stores_parent_journey(self, journey_service, identity_service):
+        identity_service.set_identity("journey", "parent", "# Parent\n**Status:** active")
+        content = """# Child
+**Status:** active
+
+## Description
+
+Child journey with enough content for creation.
+"""
+        journey_service.create_journey(slug="child", content=content, parent_journey="parent")
+
+        metadata = journey_service._get_journey_identity("child").metadata
+        assert '"parent_journey": "parent"' in metadata
+
+    def test_update_metadata_fields_stores_parent_journey(self, journey_service, identity_service):
+        identity_service.set_identity("journey", "parent", "# Parent\n**Status:** active")
+        identity_service.set_identity("journey", "child", "# Child\n**Status:** active")
+
+        metadata = journey_service.update_metadata_fields("child", {"parent_journey": "parent"})
+
+        assert metadata["parent_journey"] == "parent"
+
+    def test_rejects_unknown_parent(self, journey_service, identity_service):
+        identity_service.set_identity("journey", "child", "# Child\n**Status:** active")
+
+        with pytest.raises(ValueError, match="Parent journey 'missing' not found"):
+            journey_service.update_metadata_fields("child", {"parent_journey": "missing"})
+
+    def test_rejects_self_parent(self, journey_service, identity_service):
+        identity_service.set_identity("journey", "child", "# Child\n**Status:** active")
+
+        with pytest.raises(ValueError, match="cannot be the journey itself"):
+            journey_service.update_metadata_fields("child", {"parent_journey": "child"})
+
+    def test_rejects_deeper_hierarchy(self, journey_service, identity_service):
+        identity_service.set_identity("journey", "root", "# Root\n**Status:** active")
+        identity_service.set_identity(
+            "journey",
+            "parent",
+            "# Parent\n**Status:** active",
+            metadata='{"parent_journey": "root"}',
+        )
+        identity_service.set_identity("journey", "child", "# Child\n**Status:** active")
+
+        with pytest.raises(ValueError, match="Only one hierarchy level"):
+            journey_service.update_metadata_fields("child", {"parent_journey": "parent"})
+
+    def test_rejects_parent_for_journey_that_already_has_children(
+        self, journey_service, identity_service
+    ):
+        identity_service.set_identity("journey", "root", "# Root\n**Status:** active")
+        identity_service.set_identity("journey", "parent", "# Parent\n**Status:** active")
+        identity_service.set_identity(
+            "journey",
+            "child",
+            "# Child\n**Status:** active",
+            metadata='{"parent_journey": "parent"}',
+        )
+
+        with pytest.raises(ValueError, match="cannot also have a parent"):
+            journey_service.update_metadata_fields("parent", {"parent_journey": "root"})
+
+    def test_list_journey_options_orders_children_under_parent(
+        self, journey_service, identity_service
+    ):
+        identity_service.set_identity("journey", "z-parent", "# Z Parent\n**Status:** active")
+        identity_service.set_identity("journey", "a-parent", "# A Parent\n**Status:** active")
+        identity_service.set_identity(
+            "journey",
+            "child",
+            "# Child\n**Status:** active",
+            metadata='{"parent_journey": "z-parent"}',
+        )
+
+        result = journey_service.list_journey_options()
+
+        assert [item["id"] for item in result] == ["a-parent", "z-parent", "child"]
+        assert result[2]["parent_journey"] == "z-parent"
 
 
 class TestJourneyServiceDetectJourney:

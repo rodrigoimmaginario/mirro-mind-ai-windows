@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
-import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -380,15 +379,27 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
             journey_id = payload.get("journeyId")
             if not isinstance(journey_id, str) or not journey_id:
                 raise ValueError("journeyId is required")
+            title = payload.get("title")
+            status = payload.get("status")
             fields = {
                 "project_path": payload.get("projectPath", ""),
                 "sync_file": payload.get("syncFile", ""),
                 "icon": payload.get("icon", ""),
                 "color": payload.get("color", ""),
+                "parent_journey": payload.get("parentJourney", ""),
             }
+            if title is not None and not isinstance(title, str):
+                raise ValueError("title must be a string")
+            if status is not None and not isinstance(status, str):
+                raise ValueError("status must be a string")
             if not all(isinstance(value, str) for value in fields.values()):
                 raise ValueError("Journey metadata fields must be strings")
             with MemoryClient(db_path=self._db_path()) as mem:
+                mem.journeys.update_identity_fields(
+                    journey_id,
+                    title=title,
+                    status=status,
+                )
                 metadata = mem.journeys.update_metadata_fields(journey_id, fields)
         except (json.JSONDecodeError, ValueError, TypeError) as exc:
             self._send_json({"error": str(exc)}, status=400)
@@ -445,6 +456,7 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
                 "sync_file": payload.get("syncFile", ""),
                 "icon": payload.get("icon", ""),
                 "color": payload.get("color", ""),
+                "parent_journey": payload.get("parentJourney", ""),
             }
             if not all(isinstance(value, str) for value in fields.values()):
                 raise ValueError("Journey metadata fields must be strings")
@@ -808,15 +820,7 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
 
 
 def _journey_options(mem: MemoryClient) -> list[dict[str, str]]:
-    options: list[dict[str, str]] = []
-    for identity in mem.store.get_identity_by_layer("journey"):
-        content = identity.content or ""
-        first_line = content.split("\n")[0].strip().lstrip("# ").strip()
-        status_match = re.search(r"\*\*Status:\*\*\s*([^\n]+)", content)
-        status = status_match.group(1).strip() if status_match else "unknown"
-        label = first_line or identity.key
-        options.append({"id": identity.key, "name": label, "status": status})
-    return sorted(options, key=lambda item: (item["status"] != "active", item["name"].lower()))
+    return mem.journeys.list_journey_options()
 
 
 def _conversation_tags(raw_tags: str | None) -> list[str]:

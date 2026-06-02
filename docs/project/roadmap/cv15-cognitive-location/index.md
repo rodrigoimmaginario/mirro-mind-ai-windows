@@ -43,7 +43,7 @@ Hierarchical journeys organize the field. Scene interprets the field.
 
 | Target | Story | Outcome | Status |
 |--------|-------|---------|--------|
-| v0.20.0 | Hierarchical Journey Organization | Users can set parent journeys and see journeys rendered hierarchically across web and Mirror textual surfaces | 🟡 Planned |
+| v0.20.0 | [Hierarchical Journey Organization](cv15-ds1-hierarchical-journey-organization/index.md) | Users can set parent journeys and see journeys rendered hierarchically across web and Mirror textual surfaces | ✅ Done |
 | v0.21.0 | Scene Workspace Home | Workspace opens as Scene, using the hierarchical journey map, movement signals, horizons, and bounded LLM synthesis to return cognitive location | 🟡 Planned |
 
 Version numbers are release intents. They may shift if urgent patches land first,
@@ -54,7 +54,8 @@ before Scene synthesis depends on it.
 
 ## Story 1 — Hierarchical Journey Organization
 
-**Release intent:** v0.20.0
+**Status:** ✅ Done
+**Release:** [v0.20.0](../../../releases/v0.20.0.md)
 
 ### Outcome
 

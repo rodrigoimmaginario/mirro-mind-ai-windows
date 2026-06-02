@@ -1045,7 +1045,8 @@ input {
 .conversation-journey-form select,
 .conversation-tags-form input,
 .conversation-summary-form textarea,
-.journey-settings-form input {
+.journey-settings-form input,
+.journey-settings-form select {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -1691,6 +1692,35 @@ input {
   gap: 4px;
 }
 
+.journey-menu-row {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  gap: 2px;
+}
+
+.journey-expand-toggle,
+.journey-expand-spacer {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 28px;
+}
+
+.journey-expand-toggle {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.journey-expand-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 .journey-menu-item {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1706,6 +1736,14 @@ input {
   font-size: 13px;
   line-height: 1.25;
   text-align: left;
+}
+
+.journey-menu-child-row {
+  grid-column: 1 / -1;
+}
+
+.journey-menu-child {
+  padding-left: 18px;
 }
 
 .journey-menu-item:hover,
@@ -1726,6 +1764,32 @@ input {
   color: var(--text);
   font-size: 13px;
   font-weight: 500;
+}
+
+.journey-completed-toggle {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  margin: 6px 0;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--muted) 8%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.journey-completed-toggle:hover {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+}
+
+.journey-menu-muted {
+  opacity: 0.55;
+}
+
+.journey-menu-muted.active {
+  opacity: 0.9;
 }
 
 .journey-workspace {

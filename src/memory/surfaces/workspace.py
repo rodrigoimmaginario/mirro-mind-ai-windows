@@ -32,18 +32,27 @@ class WorkspaceSurface:
         self.attachments = attachments
 
     def home(self, journey_id: str | None = None) -> WorkspaceHome:
-        active_journeys = self.journeys.list_active_journeys()
+        all_journeys = self.journeys.list_journeys()
+        active_journeys = [journey for journey in all_journeys if journey.get("status") == "active"]
         recent_conversations = self.conversations.list_recent(limit=200)
         recent_memories = self.memories.list_recent(limit=200)
         tasks = self.tasks.list_tasks()
-        active_journeys = _sort_journeys_by_recent_activity(
+        sorted_active_journeys = _sort_journeys_by_recent_activity(
             active_journeys,
             conversations=recent_conversations,
             memories=recent_memories,
             tasks=tasks,
         )
-        selected_journey_id = _select_journey_id(active_journeys, recent_conversations, journey_id)
-        selected_journey = _find_journey(active_journeys, selected_journey_id)
+        inactive_journeys = sorted(
+            [journey for journey in all_journeys if journey.get("status") != "active"],
+            key=lambda journey: (
+                journey.get("status") != "completed",
+                journey.get("name", "").lower(),
+            ),
+        )
+        display_journeys = sorted_active_journeys + inactive_journeys
+        selected_journey_id = _select_journey_id(display_journeys, recent_conversations, journey_id)
+        selected_journey = _find_journey(display_journeys, selected_journey_id)
 
         journey_conversations = (
             self.conversations.list_recent(limit=200, journey=selected_journey_id)
@@ -118,7 +127,7 @@ class WorkspaceSurface:
                     status="derived",
                 ),
             ),
-            journeys=tuple(_journey_card(journey) for journey in active_journeys),
+            journeys=tuple(_journey_card(journey) for journey in display_journeys),
             selected_journey_id=selected_journey_id,
             selected_journey=selected_card,
             sections=sections,
@@ -187,9 +196,15 @@ class WorkspaceSurface:
                 "description": "Stable routing key.",
             },
             {
+                "key": "title",
+                "label": "Title",
+                "value": journey.get("name") or journey["id"],
+                "description": "Display title stored as the journey markdown heading.",
+            },
+            {
                 "key": "status",
                 "label": "Status",
-                "value": "active",
+                "value": journey.get("status") or "unknown",
                 "description": "Current journey status.",
             },
             {
@@ -216,12 +231,18 @@ class WorkspaceSurface:
                 "value": metadata.get("color") or "Not configured",
                 "description": "Optional visual color metadata.",
             },
+            {
+                "key": "parentJourney",
+                "label": "Parent journey",
+                "value": metadata.get("parent_journey") or "Not configured",
+                "description": "Optional one-level parent journey for visual organization.",
+            },
         ]
         return WorkspaceSection(
             id="settings",
             title="Settings",
             description="Configuration bindings for the selected journey. Read-only for now.",
-            metadata={"settings": settings},
+            metadata={"settings": settings, "journeyOptions": self.journeys.list_journey_options()},
         )
 
     def _recent_conversations_section(
@@ -391,8 +412,12 @@ def _journey_card(journey: dict) -> SurfaceCard:
         title=journey["name"] or journey["id"],
         description=journey["description"],
         href=f"/objects/journey/{journey['id']}",
-        status="active",
-        metadata={"icon": metadata.get("icon") or "⌁", "data_readiness": "real"},
+        status=journey.get("status") or "unknown",
+        metadata={
+            "icon": metadata.get("icon") or "⌁",
+            "parent_journey": metadata.get("parent_journey") or "",
+            "data_readiness": "real",
+        },
     )
 
 

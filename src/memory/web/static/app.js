@@ -12,6 +12,8 @@ let currentDocPath = null;
 let docsLoaded = false;
 let activeView = 'workspace';
 let selectedWorkspaceJourney = null;
+let showCompletedJourneys = false;
+let expandedJourneyParents = new Set(JSON.parse(sessionStorage.getItem('expandedJourneyParents') || '[]'));
 let shellState = null;
 let operationsCatalog = [];
 let warningTimeout = null;
@@ -938,26 +940,75 @@ function renderWorkspace(surface) {
 }
 
 function renderJourneyMenu(journeys, selectedId) {
-  if (!journeys.length) return `<p class="empty-state">No active journeys are available yet.</p>`;
+  if (!journeys.length) return `<p class="empty-state">No journeys are available yet.</p>`;
+  const completedJourneys = (journeys || []).filter((journey) => journey.status === 'completed');
+  const completedSelected = completedJourneys.some((journey) => journey.id === selectedId);
+  const includeCompleted = showCompletedJourneys || completedSelected;
+  const visibleJourneys = includeCompleted ? journeys : (journeys || []).filter((journey) => journey.status !== 'completed');
+  const renderItems = (items) => hierarchicalJourneyItems(items, selectedId).map(({ journey, depth, hasChildren, expanded }) => `
+    <div class="journey-menu-row ${depth ? 'journey-menu-child-row' : ''}">
+      ${hasChildren ? `
+        <button type="button" class="journey-expand-toggle" title="${expanded ? 'Collapse journey' : 'Expand journey'}" data-toggle-journey-parent="${escapeHtml(journey.id)}">
+          ${expanded ? '▾' : '▸'}
+        </button>
+      ` : '<span class="journey-expand-spacer"></span>'}
+      <button type="button" class="journey-menu-item ${['completed', 'paused'].includes(journey.status) ? 'journey-menu-muted' : ''} ${journey.status === 'completed' ? 'journey-menu-completed' : ''} ${journey.status === 'paused' ? 'journey-menu-paused' : ''} ${depth ? 'journey-menu-child' : ''} ${journey.id === selectedId ? 'active' : ''}" title="${escapeHtml(journey.title)}" data-workspace-journey="${escapeHtml(journey.id)}">
+        <span>${escapeHtml(depth ? '↳' : (journey.metadata?.icon || '⌁'))}</span>
+        <span class="journey-menu-title">${escapeHtml(journey.title)}</span>
+      </button>
+    </div>
+  `).join('');
   return `
     <div class="journey-menu">
       <button type="button" class="journey-menu-item" title="Unassigned conversations" data-unassigned-conversations>
         <span>?</span>
         <span class="journey-menu-title">Unassigned</span>
       </button>
-      ${journeys.map((journey) => `
-        <button type="button" class="journey-menu-item ${journey.id === selectedId ? 'active' : ''}" title="${escapeHtml(journey.title)}" data-workspace-journey="${escapeHtml(journey.id)}">
-          <span>${escapeHtml(journey.metadata?.icon || '⌁')}</span>
-          <span class="journey-menu-title">${escapeHtml(journey.title)}</span>
+      ${completedJourneys.length ? `
+        <button type="button" class="journey-completed-toggle" data-toggle-completed-journeys>
+          ${includeCompleted ? 'Hide completed journeys' : `Show completed journeys (${escapeHtml(completedJourneys.length)})`}
         </button>
-      `).join('')}
+      ` : ''}
+      ${renderItems(visibleJourneys)}
     </div>
   `;
+}
+
+function hierarchicalJourneyItems(journeys, selectedId = '') {
+  const byId = new Map((journeys || []).map((journey) => [journey.id, journey]));
+  const children = new Map();
+  const roots = [];
+  (journeys || []).forEach((journey) => {
+    const parent = journey.metadata?.parent_journey || journey.parent_journey || '';
+    if (parent && byId.has(parent)) {
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(journey);
+    } else {
+      roots.push(journey);
+    }
+  });
+  const selectedParent = (journeys || []).find((journey) => journey.id === selectedId)?.metadata?.parent_journey || '';
+  const ordered = [];
+  roots.forEach((journey) => {
+    const childItems = children.get(journey.id) || [];
+    const hasChildren = childItems.length > 0;
+    const expanded = expandedJourneyParents.has(journey.id) || selectedParent === journey.id;
+    ordered.push({ journey, depth: 0, hasChildren, expanded });
+    if (expanded) childItems.forEach((child) => ordered.push({ journey: child, depth: 1, hasChildren: false, expanded: false }));
+  });
+  return ordered;
 }
 
 async function loadNewJourneyForm(draft = null) {
   activeView = 'workspace';
   const status = draft?.status || 'active';
+  let journeyOptions = [];
+  try {
+    const payload = await fetchJson('/api/conversations/unassigned?limit=1');
+    journeyOptions = payload.journeys || [];
+  } catch (error) {
+    journeyOptions = [];
+  }
   content.innerHTML = `
     <section class="surface-intro surface-line workspace-hero">
       <button type="button" class="text-link" data-back-view="workspace">← Back to Workspace</button>
@@ -991,13 +1042,13 @@ async function loadNewJourneyForm(draft = null) {
         </label>
         <button type="submit">Generate draft</button>
       </form>
-      ${draft ? renderJourneyCreateReview(draft) : '<p class="empty-state">Generate a draft to review the journey identity before saving.</p>'}
+      ${draft ? renderJourneyCreateReview(draft, journeyOptions) : '<p class="empty-state">Generate a draft to review the journey identity before saving.</p>'}
     </section>
   `;
   window.scrollTo({ top: 0 });
 }
 
-function renderJourneyCreateReview(draft) {
+function renderJourneyCreateReview(draft, journeyOptions = []) {
   return `
     <form class="journey-create-form journey-create-review" data-journey-create-form>
       <label>
@@ -1016,6 +1067,7 @@ function renderJourneyCreateReview(draft) {
         <span>Color</span>
         <input name="color" value="${escapeHtml(draft.color || '')}" placeholder="violet" />
       </label>
+      ${renderJourneyParentSelect(journeyOptions, draft.slug || '', draft.parentJourney || '')}
       <label class="journey-content-field">
         <span>Journey identity markdown</span>
         <textarea name="content" rows="16" required>${escapeHtml(draft.content || '')}</textarea>
@@ -1087,7 +1139,7 @@ function renderWorkspaceTab(section, index) {
 function renderWorkspaceTabPanel(section, index) {
   const cards = (section.cards || []).map(renderWorkspaceCard).join('');
   const content = section.metadata?.content ? renderDetailContent(section.metadata.content) : '';
-  const settings = section.metadata?.settings ? renderJourneySettings(section.metadata.settings) : '';
+  const settings = section.metadata?.settings ? renderJourneySettings(section.metadata.settings, section.metadata?.journeyOptions || []) : '';
   const itemCount = content || settings ? '' : `<span class="readiness-badge">${escapeHtml((section.cards || []).length)} items</span>`;
   return `
     <section class="workspace-tab-panel ${index === 0 ? 'active' : ''}" data-workspace-panel="${escapeHtml(section.id)}">
@@ -1104,7 +1156,7 @@ function renderWorkspaceTabPanel(section, index) {
   `;
 }
 
-function renderJourneySettings(settings) {
+function renderJourneySettings(settings, journeyOptions = []) {
   const readonly = (settings || []).map((item) => `
     <div class="journey-setting-item">
       <dt>${escapeHtml(item.label)}</dt>
@@ -1116,12 +1168,51 @@ function renderJourneySettings(settings) {
     <dl class="journey-settings-list">${readonly}</dl>
     <form class="journey-settings-form" data-journey-settings-form data-journey-id="${escapeHtml(values.journeyId || '')}">
       <p class="eyebrow">Edit metadata</p>
+      ${renderJourneyParentSelect(journeyOptions, values.journeyId || '', values.parentJourney)}
+      ${renderJourneySettingInput('title', 'Journey title', values.title)}
+      ${renderJourneyStatusSelect(values.status)}
       ${renderJourneySettingInput('projectPath', 'Project path', values.projectPath)}
       ${renderJourneySettingInput('syncFile', 'Sync file', values.syncFile)}
       ${renderJourneySettingInput('icon', 'Icon', values.icon)}
       ${renderJourneySettingInput('color', 'Color', values.color)}
       <button type="submit">Save journey settings</button>
     </form>
+  `;
+}
+
+function renderJourneyParentSelect(journeys, journeyId, selected) {
+  const safeSelected = selected === 'Not configured' ? '' : selected || '';
+  const options = (journeys || [])
+    .filter((journey) => journey.id !== journeyId)
+    .map((journey) => {
+      const value = journey.id || '';
+      const label = journey.name || value;
+      const status = journey.status && journey.status !== 'active' ? ` · ${journey.status}` : '';
+      const prefix = journey.parent_journey ? '↳ ' : '';
+      return `<option value="${escapeHtml(value)}" ${value === safeSelected ? 'selected' : ''}>${escapeHtml(prefix + label)} (${escapeHtml(value)}${escapeHtml(status)})</option>`;
+    })
+    .join('');
+  return `
+    <label>
+      <span>Parent journey</span>
+      <select name="parentJourney">
+        <option value="" ${safeSelected ? '' : 'selected'}>No parent</option>
+        ${options}
+      </select>
+    </label>
+  `;
+}
+
+function renderJourneyStatusSelect(selected) {
+  const statuses = ['active', 'planned', 'paused', 'completed'];
+  const safeSelected = selected || 'active';
+  return `
+    <label>
+      <span>Status</span>
+      <select name="status">
+        ${statuses.map((status) => `<option value="${escapeHtml(status)}" ${status === safeSelected ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
+      </select>
+    </label>
   `;
 }
 
@@ -1525,7 +1616,8 @@ function renderJourneySelectOptions(journeys, selected = '') {
     const value = journey.id || '';
     const label = journey.name || value;
     const status = journey.status && journey.status !== 'active' ? ` · ${journey.status}` : '';
-    return `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)} (${escapeHtml(value)}${escapeHtml(status)})</option>`;
+    const prefix = journey.parent_journey ? '↳ ' : '';
+    return `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(prefix + label)} (${escapeHtml(value)}${escapeHtml(status)})</option>`;
   }).join('');
 }
 
@@ -1953,6 +2045,25 @@ content.addEventListener('click', async (event) => {
     await deleteConversations([conversationId]);
     showWarning('Conversation deleted.');
     await showView('workspace', { updateHash: true });
+    return;
+  }
+
+  const journeyParentToggle = event.target.closest('[data-toggle-journey-parent]');
+  if (journeyParentToggle) {
+    event.preventDefault();
+    const parentId = journeyParentToggle.dataset.toggleJourneyParent;
+    if (expandedJourneyParents.has(parentId)) expandedJourneyParents.delete(parentId);
+    else expandedJourneyParents.add(parentId);
+    sessionStorage.setItem('expandedJourneyParents', JSON.stringify([...expandedJourneyParents]));
+    await showView('workspace', { updateHash: false });
+    return;
+  }
+
+  const completedToggleTarget = event.target.closest('[data-toggle-completed-journeys]');
+  if (completedToggleTarget) {
+    event.preventDefault();
+    showCompletedJourneys = !showCompletedJourneys;
+    await showView('workspace', { updateHash: false });
     return;
   }
 
@@ -2432,6 +2543,7 @@ content.addEventListener('submit', async (event) => {
         projectPath: String(data.get('projectPath') || ''),
         icon: String(data.get('icon') || ''),
         color: String(data.get('color') || ''),
+        parentJourney: String(data.get('parentJourney') || ''),
       }),
     });
     selectedWorkspaceJourney = result.journeyId;
@@ -2541,10 +2653,13 @@ content.addEventListener('submit', async (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         journeyId: settingsForm.dataset.journeyId,
+        title: String(data.get('title') || ''),
+        status: String(data.get('status') || 'active'),
         projectPath: String(data.get('projectPath') || ''),
         syncFile: String(data.get('syncFile') || ''),
         icon: String(data.get('icon') || ''),
         color: String(data.get('color') || ''),
+        parentJourney: String(data.get('parentJourney') || ''),
       }),
     });
     showWarning('Journey settings saved.');

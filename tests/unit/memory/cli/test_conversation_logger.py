@@ -293,7 +293,9 @@ class TestJourneyAssociationRepair:
 class TestSessionStart:
     def test_fast_start_unmutes_without_maintenance(self, mocker, tmp_path):
         mocker.patch("memory.cli.conversation_logger._MUTE_FLAG_PATH", tmp_path / "mute")
-        reset_orientation = mocker.patch("memory.cli.conversation_logger._reset_session_orientation")
+        reset_orientation = mocker.patch(
+            "memory.cli.conversation_logger._reset_session_orientation"
+        )
         extract = mocker.patch("memory.cli.conversation_logger.extract_pending", return_value=0)
         close = mocker.patch("memory.cli.conversation_logger.close_stale_orphans", return_value=0)
         backfill = mocker.patch(
@@ -316,7 +318,9 @@ class TestSessionStart:
 
     def test_unmutes_and_returns_active(self, mocker, tmp_path):
         mocker.patch("memory.cli.conversation_logger._MUTE_FLAG_PATH", tmp_path / "mute")
-        reset_orientation = mocker.patch("memory.cli.conversation_logger._reset_session_orientation")
+        reset_orientation = mocker.patch(
+            "memory.cli.conversation_logger._reset_session_orientation"
+        )
         mocker.patch("memory.cli.conversation_logger.extract_pending", return_value=0)
         mocker.patch("memory.cli.conversation_logger.close_stale_orphans", return_value=0)
         mocker.patch("memory.cli.conversation_logger.backfill_pi_sessions", return_value=0)

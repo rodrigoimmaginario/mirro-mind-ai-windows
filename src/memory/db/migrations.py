@@ -359,6 +359,42 @@ def _migrate_create_operation_run_events(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_create_exploratory_stories(conn: sqlite3.Connection) -> None:
+    """Create durable Exploratory Story records for Explorer Mode."""
+    if _table_exists(conn, "exploratory_stories"):
+        return
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS exploratory_stories (
+            id TEXT PRIMARY KEY,
+            journey TEXT NOT NULL,
+            title TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            current_story TEXT,
+            narrative_summary TEXT,
+            last_story_card TEXT,
+            attractors_json TEXT,
+            experiment_proposal_json TEXT,
+            builder_handoff_json TEXT,
+            source_conversations_json TEXT,
+            artifact_dir TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            promoted_at TEXT,
+            archived_at TEXT,
+            CHECK(status IN ('active', 'archived', 'promoted'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_exploratory_stories_journey
+            ON exploratory_stories(journey, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_exploratory_stories_status
+            ON exploratory_stories(status);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_exploratory_stories_one_active_per_journey
+            ON exploratory_stories(journey)
+            WHERE status = 'active';
+        """
+    )
+
+
 MigrationApply = Callable[[sqlite3.Connection], None]
 
 
@@ -375,6 +411,7 @@ MIGRATIONS: list[tuple[str, MigrationApply]] = [
     ("010_create_consolidations", _migrate_create_consolidations),
     ("011_create_operation_runs", _migrate_create_operation_runs),
     ("012_create_operation_run_events", _migrate_create_operation_run_events),
+    ("013_create_exploratory_stories", _migrate_create_exploratory_stories),
 ]
 
 

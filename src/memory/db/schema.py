@@ -231,6 +231,34 @@ CREATE TABLE IF NOT EXISTS operation_run_events (
 CREATE INDEX IF NOT EXISTS idx_operation_run_events_run
     ON operation_run_events(run_id, sequence);
 
+CREATE TABLE IF NOT EXISTS exploratory_stories (
+    id TEXT PRIMARY KEY,
+    journey TEXT NOT NULL,
+    title TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    current_story TEXT,
+    narrative_summary TEXT,
+    last_story_card TEXT,
+    attractors_json TEXT,
+    experiment_proposal_json TEXT,
+    builder_handoff_json TEXT,
+    source_conversations_json TEXT,
+    artifact_dir TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    promoted_at TEXT,
+    archived_at TEXT,
+    CHECK(status IN ('active', 'archived', 'promoted'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_exploratory_stories_journey
+    ON exploratory_stories(journey, updated_at);
+CREATE INDEX IF NOT EXISTS idx_exploratory_stories_status
+    ON exploratory_stories(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exploratory_stories_one_active_per_journey
+    ON exploratory_stories(journey)
+    WHERE status = 'active';
+
 -- Extension subsystem bookkeeping.
 --
 -- _ext_migrations tracks which SQL migration files have been applied per

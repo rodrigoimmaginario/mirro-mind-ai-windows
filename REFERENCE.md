@@ -48,16 +48,19 @@ Codex uses the `$mm-` prefix. All runtimes call the same Python core.
 ## Operating Mode Lifecycle
 
 ```bash
-uv run python -m memory mode activate "Builder Mode" --journey <slug>
-uv run python -m memory mode status
-uv run python -m memory mode deactivate
+uv run python -m memory mode [--session-id ID] activate "Builder Mode" --journey <slug>
+uv run python -m memory mode [--session-id ID] status
+uv run python -m memory mode [--session-id ID] deactivate
 ```
 
 Operating mode lifecycle is a small runtime state surface used by Mirror skills
 and status bars. It records the currently active operating lens, such as Builder
-Mode now and Explorer Mode later, plus the active journey when present. Mode
-activation and deactivation are semantic operations. Rendering the Pi status line
-and clearing stale UI are internal effects of that lifecycle.
+Mode or Explorer Mode, plus the active journey when present. When a runtime
+session id is available, operating mode is session-scoped so simultaneous Pi
+sessions do not overwrite each other's footer state. CLI-only calls retain a
+global fallback. Mode activation and deactivation are semantic operations.
+Rendering the Pi status line and clearing stale UI are internal effects of that
+lifecycle.
 
 The user-facing mode skills are `/mm-mirror`, `/mm-build`, and `/mm-explore`.
 The internal lifecycle command exists so Mirror can activate and leave explicit
@@ -67,24 +70,34 @@ context when one remains active.
 
 `memory mirror load` activates `◌ Mirror Mode`. `memory build load <slug>`
 activates `■ Builder Mode` for the selected journey. `memory explore load <slug>`
-activates `△ Explorer Mode` for the selected journey. `memory explore story
-show|update|clear <slug>` manages the current in-session Exploratory Story for a
-journey without introducing durable Explorer archive persistence. `memory explore
-story open|thicken|snapshot <slug>` renders the first visible Explorer story
-surfaces. `memory explore story attractors|experiment <slug>` records visible
-attractors and small experiment proposals inside the current story state without
+activates `△ Explorer Mode` for the selected journey and resumes the active
+durable Exploratory Story when one exists. `memory explore story show|update|clear
+<slug>` manages the current Exploratory Story; `clear` archives the active story
+so it is no longer current but remains historical evidence. `memory explore story
+list|archive <slug>` shows durable Explorer Story visibility and archives the
+active story explicitly. `memory explore story open|thicken|snapshot <slug>`
+renders the first visible Explorer story surfaces while persisting durable state.
+`memory explore story attractors|experiment <slug>` records visible attractors and
+small experiment proposals inside the current durable story state without
 activating Builder. `memory explore story handoff <slug>` writes the Builder
 transfer document set under `docs/project/explorations/<exploratory-story-slug>/`
 when the journey has a project path, including `index.md`,
-`exploratory-story.md`, `handoff-info.md`, and `product-design-proposal.md`.
-`memory explore story promote <slug>` enters Builder only after an explicit
-handoff exists. `memory explore deactivate` is the
-Explorer-specific exit operation and returns the runtime to Mirror Mode semantics
+`exploratory-story.md`, `handoff-info.md`, and `product-design-proposal.md`. It can
+attach reviewed source conversations with `--source-conversation <id>` or
+`--source-conversation <id>:<role>`, and can write a privacy-obfuscated
+`full-conversation.md` only when `--include-full-conversation` is passed.
+`memory explore story promote <slug>` marks the durable story promoted and enters
+Builder only after an explicit handoff exists. Required Explorer story surfaces
+are wrapped with `[[MIRROR_REQUIRED_SURFACE_BEGIN:<surface-id>]]` and
+`[[MIRROR_REQUIRED_SURFACE_END:<surface-id>]]` markers so runtimes can distinguish
+product surfaces from ordinary command output; the marker lines are not
+user-facing copy. `memory explore deactivate` is the Explorer-specific exit
+operation and returns the runtime to Mirror Mode semantics
 while preserving sticky journey context. Deactivation clears only the explicit
 active mode state; it does not erase sticky persona/journey defaults or rewrite
 conversation history.
 
-`memory welcome --status-line` includes active mode context when present:
+`memory welcome --status-line [--session-id ID]` includes active mode context when present:
 
 ```text
 ◇ alisson-vale · Active Journey explorer-mode on ■ Builder Mode · ✓

@@ -27,6 +27,14 @@ solutions, keep docs updated when code changes. For a journey, use `/mm-build
 <slug>` / `$mm-build <slug>` / `/mm:build <slug>` — loads journey context and
 project docs.
 
+Builder activation boundary: activating Builder Mode or loading a journey is
+context setup only. After loading the context and required docs, stop and ask
+what work should be done next. Do not edit files, create tests, run
+implementation, start TDD, or mutate project state until the user gives an
+explicit implementation or documentation instruction, such as implement, fix,
+edit, create, run tests, or names a specific story to execute. Context
+activation is not execution consent.
+
 **Ambiguity:** if the mode is unclear, ask whether the user wants personal
 reflection or project construction.
 

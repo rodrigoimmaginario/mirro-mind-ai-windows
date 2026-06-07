@@ -6,7 +6,16 @@
 
 DS8 closes the first Explorer release by making Exploratory Stories durable and making Builder handoff packages trustworthy as editorial transfer artifacts. It should not introduce multiple active stories per journey. Historical stories may exist, but only one can be active for a journey at a time.
 
-## Durable Story Model
+The work is split into two delivery stories:
+
+- **DS8.1 Durable Explorer Stories:** persistence, resume behavior, lifecycle, and minimal visibility.
+- **DS8.2 Editorial Handoff Evidence:** source evidence, handoff completeness, and privacy-safe full conversation material.
+
+This split separates state trust from evidence trust. DS8.1 proves that Explorer remembers. DS8.2 proves that Builder can trust what Explorer hands over.
+
+## DS8.1 — Durable Explorer Stories
+
+### Durable Story Model
 
 Introduce durable Exploratory Story storage, likely a new table or equivalent service-backed persistence model:
 
@@ -38,7 +47,9 @@ At most one active Exploratory Story per journey.
 
 When a new active story is opened for a journey that already has one, Mirror should ask whether to continue, archive, or replace. For the first release, prefer continuing the active story unless the user explicitly archives it.
 
-## Resume Behavior
+DS8.1 owns this model and all behavior needed to keep it current when Explorer opens, thickens, snapshots, names attractors, proposes experiments, archives, or promotes the story.
+
+### Resume Behavior
 
 `/mm-explore <journey>` should:
 
@@ -47,7 +58,9 @@ When a new active story is opened for a journey that already has one, Mirror sho
 - render `△ EXPLORATORY STORY RESUMED` when resuming;
 - otherwise start with the normal Explorer transition surface.
 
-## Editorial Handoff Workflow
+## DS8.2 — Editorial Handoff Evidence
+
+### Editorial Handoff Workflow
 
 DS7 handoff generation should be treated as a draft unless the editorial workflow has collected enough evidence.
 
@@ -69,7 +82,7 @@ product-design-proposal.md
 full-conversation.md        # only when user confirms source evidence inclusion
 ```
 
-## Handoff Completeness Checklist
+### Handoff Completeness Checklist
 
 Before marking a handoff ready for Builder, Explorer should verify whether the documents contain:
 
@@ -89,7 +102,7 @@ Before marking a handoff ready for Builder, Explorer should verify whether the d
 
 If missing, Explorer should say what is missing and ask whether to complete the handoff before promotion.
 
-## Privacy and Obfuscation for full-conversation.md
+### Privacy and Obfuscation for full-conversation.md
 
 Before writing `full-conversation.md`, Mirror must run a privacy review and obfuscation pass.
 
@@ -123,18 +136,26 @@ This document is source evidence for a Builder handoff. Sensitive personal or lo
 
 ## Visibility
 
-Minimal visibility for the first release:
+Minimal visibility for DS8.1:
 
 - `explore load` shows resumed active story;
 - `explore story snapshot` reads durable story state;
 - a CLI command can list stories for a journey;
-- handoff artifacts link back to the durable story id.
+- archive and promoted stories remain visible as historical records.
+
+Additional visibility for DS8.2:
+
+- handoff artifacts link back to the durable story id;
+- `index.md` lists source evidence;
+- `full-conversation.md`, when present, carries a privacy notice.
 
 Web visibility can wait unless it is cheap and follows existing Workspace patterns.
 
 ## User Validation in Pi
 
-The Navigator validates as a user, without internal commands:
+### DS8.1
+
+The Navigator validates durable story behavior as a user, without internal commands:
 
 ```text
 /mm-explore soul-mode
@@ -150,7 +171,13 @@ me mostra as explorações dessa jornada
 
 Expected: Mirror shows active and historical Exploratory Stories.
 
-Then:
+Then archive or promote the active exploration.
+
+Expected: the story remains visible as historical evidence with the correct lifecycle status.
+
+### DS8.2
+
+The Navigator validates handoff evidence as a user:
 
 ```text
 prepare o handoff incluindo as conversas fonte, mas obfusque informações pessoais e caminhos locais

@@ -220,6 +220,7 @@ This is permanent supported behavior. See
 | `memory_access_log` | Reinforcement access log | `memory_id`, `accessed_at` |
 | `conversation_embeddings` | Conversation summary embeddings | `conversation_id`, `summary_embedding` |
 | `runtime_sessions` | Runtime session ↔ conversation registry | `session_id`, `conversation_id`, `interface`, `mirror_active`, `persona`, `journey`, `hook_injected`, `active`, `started_at`, `updated_at`, `closed_at` |
+| `exploratory_stories` | Durable Explorer Mode stories | `id`, `journey`, `title`, `status`, `current_story`, `narrative_summary`, `attractors_json`, `experiment_proposal_json`, `builder_handoff_json`, `source_conversations_json` |
 | `consolidations` | Memory consolidation proposals and decisions | `id`, `action`, `source_memory_ids`, `proposal`, `status`, `applied_content`, `created_at` |
 | `identity_descriptors` | Routing-optimized descriptors for personas and journeys | `layer`, `key`, `descriptor`, `generated_at` |
 | `llm_calls` | LLM call log for observability (when enabled) | `id`, `role`, `model`, `prompt`, `response`, `latency_ms`, `created_at` |

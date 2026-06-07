@@ -14,6 +14,40 @@ def render_exploratory_story_opened(story: ExplorerStory) -> str:
     )
 
 
+def render_exploratory_story_resumed(story: ExplorerStory) -> str:
+    rows = _story_rows(story, include_last_card=True, include_lifecycle=True)
+    return _box("△  EXPLORATORY STORY RESUMED", rows)
+
+
+def render_explorer_story_archived(story: ExplorerStory | None, *, journey: str) -> str:
+    if story is None:
+        return _box(
+            "△  NO ACTIVE EXPLORATORY STORY",
+            [
+                ("journey", journey),
+                ("state", "No active Exploratory Story exists to archive."),
+            ],
+        )
+    return _box(
+        "△  EXPLORATORY STORY ARCHIVED",
+        _story_rows(story, include_last_card=True, include_lifecycle=True),
+    )
+
+
+def render_explorer_story_list(journey: str, stories: list[ExplorerStory]) -> str:
+    rows: list[tuple[str, str]] = [("journey", journey)]
+    if not stories:
+        rows.append(("explorations", "No Exploratory Stories have been recorded yet."))
+    for index, story in enumerate(stories, start=1):
+        title = story.title or story.current_exploratory_story or "Untitled exploration"
+        rows.append((f"story {index}", f"{title} [{story.status}]"))
+        if story.id:
+            rows.append(("id", story.id))
+        if story.updated_at:
+            rows.append(("updated", story.updated_at))
+    return _box("△  EXPLORATORY STORIES", rows)
+
+
 def render_story_thickened(story: ExplorerStory, *, changed: str | None = None) -> str:
     rows: list[tuple[str, str]] = []
     if changed and changed.strip():
@@ -73,8 +107,14 @@ def render_builder_handoff_proposed(story: ExplorerStory) -> str:
             rows.append(("handoff info", handoff.handoff_info_path))
         if handoff.product_design_proposal_path:
             rows.append(("product design", handoff.product_design_proposal_path))
+        if handoff.full_conversation_path:
+            rows.append(("full conversation", handoff.full_conversation_path))
     else:
         rows.append(("handoff", "No Builder handoff has been proposed yet."))
+    if story.source_conversations:
+        for source in story.source_conversations:
+            title = f" — {source.title}" if source.title else ""
+            rows.append(("source evidence", f"{source.conversation_id}{title} ({source.role})"))
     if story.current_exploratory_story:
         rows.append(("current story", story.current_exploratory_story))
     for attractor in story.attractors:
@@ -116,8 +156,13 @@ def _story_rows(
     *,
     include_last_card: bool,
     include_direction: bool = False,
+    include_lifecycle: bool = False,
 ) -> list[tuple[str, str]]:
     rows = [("journey", story.journey)]
+    if include_lifecycle:
+        if story.id:
+            rows.append(("story id", story.id))
+        rows.append(("status", story.status))
     if story.current_exploratory_story:
         rows.append(("current story", story.current_exploratory_story))
     if story.narrative_field_summary:
@@ -138,7 +183,9 @@ def _story_rows(
             )
             if story.experiment_proposal.description:
                 rows.append(("experiment detail", story.experiment_proposal.description))
-    if len(rows) == 1:
+    if include_lifecycle and story.updated_at:
+        rows.append(("updated", story.updated_at))
+    if len(rows) == 1 or (include_lifecycle and len(rows) <= 3):
         rows.append(("current story", "No story text recorded yet."))
     return rows
 

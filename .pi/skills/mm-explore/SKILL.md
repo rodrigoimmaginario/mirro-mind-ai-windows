@@ -9,8 +9,8 @@ user-invocable: true
 Activates Explorer Mode for a specific journey. Explorer Mode is a Mirror-native
 lens for uncertainty before construction.
 
-Explorer Mode is experimental right now. The full Explorer experience is being
-built and will be available soon.
+Explorer Mode is active and supports durable exploration, story thickening,
+attractors, experiment proposals, and Builder handoff.
 
 ## Usage
 
@@ -51,7 +51,9 @@ The command:
 - renders the Mode Transition Surface (`△ EXPLORER MODE ACTIVE`);
 - sets the journey as sticky context;
 - loads Mirror identity and journey context;
-- prints Explorer Mode guidance, including the experimental availability note.
+- resumes the active durable Exploratory Story when one exists;
+- renders `△ EXPLORATORY STORY RESUMED` when resuming;
+- prints Explorer Mode guidance with the active Explorer capability boundary.
 
 ## 1.1 Required Surface Rendering
 
@@ -61,18 +63,31 @@ recreate it from scratch unless the command failed to render it; copy the
 rendered surface from the command output.
 
 After any `uv run python -m memory explore story ...` command that returns a
-Mirror surface, paste the returned surface verbatim as the first visible block in
-the response. Do not summarize, interpret, or paraphrase before rendering it.
+Mirror surface, paste the returned surface as the first visible block in the
+response. Do not summarize, interpret, or paraphrase before rendering it.
+
+Some Explorer story commands wrap required product surfaces with machine-readable
+contract markers:
+
+```text
+[[MIRROR_REQUIRED_SURFACE_BEGIN:<surface-id>]]
+...
+[[MIRROR_REQUIRED_SURFACE_END:<surface-id>]]
+```
+
+When markers are present, render the marked `Mirror` surface content first and do
+not render the marker lines themselves. The markers are a runtime contract, not
+user-facing product copy.
 
 For `story open`, `story thicken`, `story snapshot`, `story attractors`, `story
-experiment`, and `story handoff`, the returned `△ ...` surface is the primary
-response. Render it before commentary. Commentary may follow only after the
-surface is visible.
+experiment`, `story list`, `story archive`, and `story handoff`, the returned
+`△ ...` surface is the primary response. Render it before commentary. Commentary
+may follow only after the surface is visible.
 
 ## 2. Work In Explorer Mode
 
-Explorer Mode is experimental. The full Explorer experience is being built and
-will be available soon.
+Explorer Mode is active and supports durable exploration, story thickening,
+attractors, experiment proposals, and Builder handoff.
 
 Explorer preserves uncertainty. Builder executes commitment.
 
@@ -133,8 +148,46 @@ uv run python -m memory explore story experiment <slug> --title "..." --descript
 uv run python -m memory explore story snapshot <slug>
 ```
 
+- When the user asks to see explorations for the active journey, render durable story visibility with:
+
+```bash
+uv run python -m memory explore story list <slug>
+```
+
+- When the user asks to archive or close the active exploration without promoting it, archive the active story with:
+
+```bash
+uv run python -m memory explore story archive <slug>
+```
+
 - Render the story surface returned by those commands visibly to the user.
 - Do not promote to Builder or Delivery without explicit user confirmation.
+
+## 2.1 Operational Boundary
+
+Explorer Mode must not directly execute clear operational mutation requests.
+When the user asks to edit files, apply a procedure to documents, create code,
+run implementation commands, mutate roadmap/docs/code, or otherwise change
+project state, do not call Explorer story commands and do not mutate files.
+
+Instead, name the boundary visibly and ask whether to switch to Builder Mode for
+the same journey. Use this response shape:
+
+```text
+△ EXPLORER → BUILDER BOUNDARY
+
+This is operational Builder work, not exploratory thickening. Explorer preserves uncertainty; Builder executes commitment. I can switch to Builder Mode for <slug> and do this there.
+```
+
+Only after the user confirms the switch should Mirror activate Builder Mode with:
+
+```bash
+uv run python -m memory build load <slug>
+```
+
+Local refinements to the exploration itself, such as microcopy discussion,
+labels, wording, icons, or formatting, remain conversational unless the user
+explicitly asks to preserve them in the Exploratory Story.
 
 ## 3. Deactivation
 
@@ -168,10 +221,17 @@ isso já está pronto para virar Builder?
 ```
 
 Do not switch to Builder silently. First produce a transfer document set and
-render the handoff proposal:
+render the handoff proposal. If the user asks to include source conversations,
+confirm which conversations should be included before adding raw source evidence.
+When the user names the current or recent conversation rather than an id, inspect
+recent journey conversations with `uv run python -m memory conversations --journey
+<slug> --limit 5`, show the candidate source evidence, and ask for confirmation.
+Use `--source-conversation <conversation-id>` for reviewed source evidence. Use
+`--include-full-conversation` only after explicit confirmation that raw
+conversation evidence should be written with privacy obfuscation.
 
 ```bash
-uv run python -m memory explore story handoff <slug> --title "..." --summary "..." --editorial-synthesis "..."
+uv run python -m memory explore story handoff <slug> --title "..." --summary "..." --editorial-synthesis "..." --source-conversation "<conversation-id>:origin conversation" --include-full-conversation
 ```
 
 Render `△ BUILDER HANDOFF PROPOSED` visibly, including the generated document
@@ -182,6 +242,7 @@ index.md
 exploratory-story.md
 handoff-info.md
 product-design-proposal.md
+full-conversation.md        # only after explicit confirmation
 ```
 
 Ask for explicit confirmation. Only after the user confirms should Mirror call:

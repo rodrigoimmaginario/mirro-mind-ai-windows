@@ -32,7 +32,7 @@ The user should not have to infer what changed from the footer alone.
 - Add a reusable Mode Transition Surface for mode changes.
 - Render a Mirror Mode surface when `/mm-mirror` activates `◌ Mirror Mode`.
 - Render a Builder Mode surface when `/mm-build` activates `■ Builder Mode`.
-- Render a first Explorer Mode surface when `/mm-explore` activates `△ Explorer Mode`, keeping it minimal until Explorer behavior is implemented.
+- Render an Explorer Mode transition surface when `/mm-explore` activates `△ Explorer Mode`, with current availability aligned to the durable Explorer release.
 - Show persona-routing availability in Mirror Mode.
 - Introduce a persona icon distinct from the Mirror identity symbol.
 - Keep the status bar as persistent orientation and the transition surface as conversational confirmation.

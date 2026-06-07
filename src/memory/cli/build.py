@@ -9,7 +9,7 @@ from pathlib import Path
 from memory.cli.conversation_logger import switch_conversation
 from memory.cli.runtime import inspect_clone_role
 from memory.client import MemoryClient
-from memory.services.operating_mode import activate_mode
+from memory.services.operating_mode import activate_mode, resolve_operating_session_id
 from memory.skills.mirror import _persist_global_sticky_defaults
 from memory.surfaces.mode_transition import render_builder_mode_transition
 
@@ -82,7 +82,12 @@ def _check_clone_role_guard(
     sys.exit(2)
 
 
-def cmd_load(slug: str, *, ignore_production_role: bool = False) -> None:
+def cmd_load(
+    slug: str,
+    *,
+    ignore_production_role: bool = False,
+    session_id: str | None = None,
+) -> None:
     mem = MemoryClient()
 
     journey_content = mem.get_identity("journey", slug)
@@ -126,8 +131,14 @@ def cmd_load(slug: str, *, ignore_production_role: bool = False) -> None:
             print(memory.content)
 
     _persist_global_sticky_defaults(mem, persona="engineer", journey=slug)
-    activate_mode(mem.store, mode="Builder Mode", journey=slug)
-    switch_conversation(persona="engineer", journey=slug)
+    resolved_session_id = resolve_operating_session_id(mem.store, session_id)
+    activate_mode(
+        mem.store,
+        mode="Builder Mode",
+        journey=slug,
+        session_id=resolved_session_id,
+    )
+    switch_conversation(session_id=resolved_session_id, persona="engineer", journey=slug)
 
     if project_path:
         print(f"\nproject_path={project_path}")
@@ -150,8 +161,17 @@ def main(argv: list[str] | None = None) -> None:
         dest="ignore_production_role",
         help="Override the production clone role guard for this invocation",
     )
+    p_load.add_argument(
+        "--session-id",
+        default=None,
+        help="Runtime session id for session-scoped operating mode state",
+    )
 
     args = parser.parse_args(argv)
 
     if args.command == "load":
-        cmd_load(args.slug, ignore_production_role=args.ignore_production_role)
+        cmd_load(
+            args.slug,
+            ignore_production_role=args.ignore_production_role,
+            session_id=args.session_id,
+        )

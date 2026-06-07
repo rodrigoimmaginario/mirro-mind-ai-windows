@@ -79,13 +79,18 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Render a compact Mirror status line for runtime status bars",
     )
+    parser.add_argument(
+        "--session-id",
+        default=None,
+        help="Runtime session id for session-scoped status line context",
+    )
     args = parser.parse_args(argv)
 
     if _welcome_disabled():
         return
 
     if args.status_line:
-        status = compose_status_line(mirror_home=args.mirror_home)
+        status = compose_status_line(mirror_home=args.mirror_home, session_id=args.session_id)
         if status:
             print(status)
         return
@@ -118,12 +123,16 @@ def compose_welcome(mirror_home: str | Path | None = None) -> str:
     return _render(user=home_path.name, stats=stats_line, version=version_line, update=update_line)
 
 
-def compose_status_line(mirror_home: str | Path | None = None) -> str:
+def compose_status_line(
+    mirror_home: str | Path | None = None,
+    *,
+    session_id: str | None = None,
+) -> str:
     home_path = _resolve_home(mirror_home)
     if home_path is None:
         return ""
     parts = [f"◇ {home_path.name}"]
-    mode_context = _mode_status_segment(home_path)
+    mode_context = _mode_status_segment(home_path, session_id=session_id)
     if mode_context:
         parts.append(mode_context)
     awareness = _read_update_cache(home_path)
@@ -138,12 +147,12 @@ def compose_status_line(mirror_home: str | Path | None = None) -> str:
 # --------- status line ---------------------------------------------------
 
 
-def _mode_status_segment(home_path: Path) -> str | None:
+def _mode_status_segment(home_path: Path, *, session_id: str | None = None) -> str | None:
     db_path = db_path_from_mirror_home(home_path)
     if db_path is None or not db_path.exists():
         return None
     with MemoryClient(db_path=db_path) as mem:
-        state = get_active_mode(mem.store)
+        state = get_active_mode(mem.store, session_id=session_id)
         if state is None:
             _, sticky_journey = mem.store.get_global_sticky_defaults()
             state = OperatingModeState(mode="Mirror Mode", journey=sticky_journey)

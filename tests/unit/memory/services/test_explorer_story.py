@@ -6,12 +6,17 @@ from memory.services.explorer_story import (
     ExplorerAttractor,
     ExplorerBuilderHandoff,
     ExplorerExperimentProposal,
+    ExplorerSourceConversation,
+    archive_explorer_story,
     clear_explorer_story,
     get_explorer_story,
+    list_explorer_stories,
+    mark_explorer_story_promoted,
     render_explorer_story_context,
     set_explorer_attractors,
     set_explorer_builder_handoff,
     set_explorer_experiment_proposal,
+    set_explorer_source_conversations,
     update_explorer_story,
 )
 
@@ -103,7 +108,27 @@ def test_explorer_stories_are_isolated_by_journey(tmp_path):
     assert mirror.current_exploratory_story == "Mirror story."
 
 
-def test_clear_explorer_story(tmp_path):
+def test_story_persists_across_clients(tmp_path):
+    mirror_home = tmp_path / ".mirror" / "alisson-vale"
+    db_path = default_db_path_for_home(mirror_home)
+    mem = MemoryClient(db_path=db_path)
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Explorer story survives a new client.",
+    )
+    mem.close()
+
+    reopened = MemoryClient(db_path=db_path)
+
+    loaded = get_explorer_story(reopened.store, "explorer-mode")
+    assert loaded is not None
+    assert loaded.id is not None
+    assert loaded.status == "active"
+    assert loaded.current_exploratory_story == "Explorer story survives a new client."
+
+
+def test_clear_explorer_story_archives_active_story(tmp_path):
     mem = _client(tmp_path)
     update_explorer_story(
         mem.store,
@@ -114,6 +139,47 @@ def test_clear_explorer_story(tmp_path):
     clear_explorer_story(mem.store, "explorer-mode")
 
     assert get_explorer_story(mem.store, "explorer-mode") is None
+    stories = list_explorer_stories(mem.store, "explorer-mode")
+    assert len(stories) == 1
+    assert stories[0].status == "archived"
+
+
+def test_archive_active_story_allows_new_active_story(tmp_path):
+    mem = _client(tmp_path)
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="First story.",
+    )
+
+    archived = archive_explorer_story(mem.store, "explorer-mode")
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Second story.",
+    )
+
+    assert archived is not None
+    assert archived.status == "archived"
+    stories = list_explorer_stories(mem.store, "explorer-mode")
+    assert [story.status for story in stories] == ["active", "archived"]
+    assert stories[0].current_exploratory_story == "Second story."
+
+
+def test_mark_promoted_removes_active_story_and_preserves_history(tmp_path):
+    mem = _client(tmp_path)
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Promoted story.",
+    )
+
+    promoted = mark_explorer_story_promoted(mem.store, "explorer-mode")
+
+    assert promoted is not None
+    assert promoted.status == "promoted"
+    assert get_explorer_story(mem.store, "explorer-mode") is None
+    assert list_explorer_stories(mem.store, "explorer-mode")[0].status == "promoted"
 
 
 def test_invalid_metadata_returns_none(tmp_path):
@@ -200,6 +266,32 @@ def test_setting_experiment_preserves_attractors_and_story(tmp_path):
     assert updated.attractors[0].label == "External validation"
     assert updated.experiment_proposal is not None
     assert updated.experiment_proposal.title == "Validate in Pi"
+
+
+def test_setting_source_conversations_persists_evidence(tmp_path):
+    mem = _client(tmp_path)
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Explorer is becoming observable.",
+    )
+
+    updated = set_explorer_source_conversations(
+        mem.store,
+        "explorer-mode",
+        [
+            ExplorerSourceConversation(
+                conversation_id="conv-123",
+                title="Explorer validation",
+                role="origin conversation",
+            )
+        ],
+    )
+
+    assert updated.source_conversations[0].conversation_id == "conv-123"
+    loaded = get_explorer_story(mem.store, "explorer-mode")
+    assert loaded is not None
+    assert loaded.source_conversations[0].title == "Explorer validation"
 
 
 def test_setting_builder_handoff_preserves_story_directional_state(tmp_path):

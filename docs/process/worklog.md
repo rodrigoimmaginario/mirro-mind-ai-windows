@@ -12,6 +12,24 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-06-07 — v0.23.0 release candidate prepared
+
+Prepared `v0.23.0 — Durable Explorer Mode` as the first durable Explorer Mode release candidate. Bumped the package version to `0.23.0`, added `docs/releases/v0.23.0.md`, listed it in the release index, and marked CV16.DS8, DS8.2, DS9, and DS10 done in the Explorer roadmap. Validation handoff artifacts under `docs/project/explorations/` are intentionally kept local for the next Soul Mode implementation and excluded from release packaging.
+
+Validation: release-note smoke renders `v0.23.0` as latest; full tests, ruff, format check, `git diff --check`, and Pi extension TypeScript check passed before packaging.
+
+### 2026-06-07 — Explorer DS8.2 and DS9 completed
+
+Completed Editorial Handoff Evidence and Required Surface Rendering/Operational Boundary hardening. Builder handoffs now link to durable Exploratory Story ids, list source evidence, include a completeness checklist, and optionally write obfuscated full conversation material only with explicit confirmation. Explorer required surfaces are wrapped in stable machine-readable markers for runtime rendering, the Pi Explorer skill renders required cards first while hiding marker lines, stale experimental Explorer availability copy was replaced with active capability wording, and operating-mode status is session-scoped in Pi to prevent footer leakage between simultaneous sessions.
+
+Validation: `uv run pytest tests/unit/ tests/integration/ -m "not live"` passed with 1439 tests; `uv run ruff check src/ tests/`, `uv run ruff format --check src/ tests/`, `git diff --check`, and `cd .pi && npx tsc --noEmit` passed. Smoke validation confirmed two Pi session ids can show independent Builder and Explorer mode status lines.
+
+### 2026-06-07 — Explorer DS8 split into durable stories and handoff evidence
+
+Refined the planned CV16.DS8 Persistence and Visibility story into two delivery stories: DS8.1 Durable Explorer Stories for persistence, resume, lifecycle, and minimal visibility; and DS8.2 Editorial Handoff Evidence for source conversations, completeness review, and privacy-safe full conversation material. Updated the CV16 roadmap, DS8 story docs, plan, test guide, and decision log so implementation can start from a clearer boundary.
+
+Validation: documentation-only planning change; `git diff --check` passed.
+
 ### 2026-06-07 — Builder handoff artifact quality improved
 
 Improved the Explorer-to-Builder transfer document set after real Soul Mode validation showed the generated docs did not represent the actual decision or the continuous thickening of the story. Handoff folders now use a slug from the handoff or Exploratory Story title instead of timestamp-plus-journey ids. The transfer set now includes `index.md` for editorial synthesis, plus richer `exploratory-story.md`, `handoff-info.md`, and `product-design-proposal.md` documents. `story handoff` accepts `--editorial-synthesis` so the assistant can transfer the narrative of discovery rather than only dumping stored state fields.

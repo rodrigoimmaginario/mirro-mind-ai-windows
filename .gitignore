@@ -16,5 +16,6 @@ conversas/
 node_modules/
 
 pi_exports/
+docs/project/explorations/
 .mirror-clone-role
 .mirror-update-channel

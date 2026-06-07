@@ -18,7 +18,12 @@ def _client(mirror_home: str | None) -> MemoryClient:
 
 def cmd_activate(args: argparse.Namespace) -> None:
     with _client(args.mirror_home) as mem:
-        state = activate_mode(mem.store, mode=args.mode, journey=args.journey)
+        state = activate_mode(
+            mem.store,
+            mode=args.mode,
+            journey=args.journey,
+            session_id=args.session_id,
+        )
     if state.journey:
         print(f"Activated {state.mode} for {state.journey}")
     else:
@@ -27,13 +32,13 @@ def cmd_activate(args: argparse.Namespace) -> None:
 
 def cmd_deactivate(args: argparse.Namespace) -> None:
     with _client(args.mirror_home) as mem:
-        deactivate_mode(mem.store)
+        deactivate_mode(mem.store, session_id=args.session_id)
     print("Deactivated active mode")
 
 
 def cmd_status(args: argparse.Namespace) -> None:
     with _client(args.mirror_home) as mem:
-        state = get_active_mode(mem.store)
+        state = get_active_mode(mem.store, session_id=args.session_id)
     if not state:
         print("Mirror Mode")
     elif state.journey:
@@ -45,6 +50,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Mirror operating mode lifecycle")
     parser.add_argument("--mirror-home", default=None, help="Explicit Mirror home")
+    parser.add_argument("--session-id", default=None, help="Runtime session id")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_activate = sub.add_parser("activate", help="Activate an operating mode")

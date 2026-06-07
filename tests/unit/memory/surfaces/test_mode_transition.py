@@ -46,5 +46,6 @@ def test_explorer_mode_transition_is_minimal():
 
     assert "△  EXPLORER MODE ACTIVE" in rendered
     assert "explorer-mode" in rendered
-    assert "Experimental mode" in rendered
+    assert "ready for durable" in rendered
+    assert "exploration" in rendered
     assert "Explorer preserves uncertainty" in rendered

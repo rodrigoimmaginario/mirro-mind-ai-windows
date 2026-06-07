@@ -59,7 +59,7 @@ def render_explorer_mode_transition(*, journey: str) -> str:
             ("active journey", journey),
             (
                 "availability",
-                "Experimental mode. The full Explorer experience is being built and will be available soon.",
+                "Explorer Mode is active and ready for durable exploration, story thickening, attractors, experiments, and Builder handoff.",
             ),
             (
                 "what this mode is",

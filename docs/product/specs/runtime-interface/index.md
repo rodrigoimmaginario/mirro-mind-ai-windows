@@ -145,7 +145,15 @@ path, in which case `session-end` gives immediate extraction.
 
 ## Optional: Runtime Status Line
 
-Runtimes with a footer/status API may render Mirror's compact status line:
+Runtimes with a footer/status API may render Mirror's compact status line. When
+the runtime has a stable session id, it should pass it so operating-mode status
+is session-scoped rather than leaking across simultaneous sessions:
+
+```bash
+uv run python -m memory welcome --status-line --session-id <session_id>
+```
+
+Fallback for runtimes without a session id:
 
 ```bash
 uv run python -m memory welcome --status-line
@@ -168,11 +176,12 @@ Pi renders this through `ctx.ui.setStatus("mirror", ...)` and refreshes it at
 startup and after agent turns. Other runtimes may ignore this optional surface.
 
 Operating mode lifecycle is explicit and lives in the Python core as an internal
-surface for Mirror skills and runtime integrations:
+surface for Mirror skills and runtime integrations. Session-aware runtimes should
+pass `--session-id`; CLI-only callers may use the global fallback:
 
 ```bash
-uv run python -m memory mode activate "Builder Mode" --journey <slug>
-uv run python -m memory mode deactivate
+uv run python -m memory mode --session-id <session_id> activate "Builder Mode" --journey <slug>
+uv run python -m memory mode --session-id <session_id> deactivate
 ```
 
 Activation and deactivation are semantic operations that can be triggered by the

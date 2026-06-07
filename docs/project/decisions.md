@@ -11,6 +11,20 @@ resolved.
 
 ## Completed Decisions
 
+### Explorer persistence splits durable story state from handoff evidence
+
+**Date:** 2026-06-07
+**Reference:** [CV16.DS8 Persistence and Visibility](roadmap/cv16-explorer-mode/cv16-ds8-persistence-and-visibility/index.md)
+
+CV16.DS8 is split into two delivery stories. DS8.1, Durable Explorer Stories, persists Exploratory Stories as durable, resumable, visible records with `active`, `archived`, and `promoted` lifecycle states. DS8.2, Editorial Handoff Evidence, adds source conversations, handoff completeness review, and optional privacy-safe `full-conversation.md` material.
+
+Consequences:
+
+- Persistence and lifecycle can ship without waiting for the heavier editorial evidence workflow.
+- Handoff evidence no longer blocks Explorer from gaining durable memory.
+- Source evidence and raw conversation export remain out of DS8.1.
+- DS8.2 can focus on provenance, completeness, and privacy boundaries without redesigning story storage.
+
 ### Explorer Mode must route operational mutations through Builder boundary
 
 **Date:** 2026-06-07

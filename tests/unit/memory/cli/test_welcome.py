@@ -629,6 +629,25 @@ def test_welcome_status_line_includes_active_mode_context(tmp_path, capsys):
     )
 
 
+def test_welcome_status_line_prefers_session_scoped_mode(tmp_path, capsys):
+    mem, home = _mem(tmp_path, user="alisson-vale")
+    from memory.services.operating_mode import activate_mode
+
+    mem.store.upsert_runtime_session("sess-a", interface="pi", active=True)
+    mem.store.upsert_runtime_session("sess-b", interface="pi", active=True)
+    activate_mode(mem.store, mode="Builder Mode", journey="explorer-mode", session_id="sess-a")
+    activate_mode(mem.store, mode="Explorer Mode", journey="mirror-4-teams", session_id="sess-b")
+
+    from memory.cli.welcome import main
+
+    main(["--mirror-home", home, "--status-line", "--session-id", "sess-a"])
+
+    assert (
+        capsys.readouterr().out.strip()
+        == "◇ alisson-vale · Active Journey explorer-mode on ■ Builder Mode · ✓"
+    )
+
+
 def test_welcome_status_line_returns_to_mirror_mode_context_after_deactivation(tmp_path, capsys):
     mem, home = _mem(tmp_path, user="alisson-vale")
     from memory.services.operating_mode import activate_mode, deactivate_mode

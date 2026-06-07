@@ -106,13 +106,27 @@ When working inside a CV/Epic/Story, also read the relevant:
 - `test-guide.md`
 - `refactoring.md`, if present
 
-## 3. Work In Builder Mode
+## 3. Builder Activation Boundary
+
+Activating Builder Mode or loading a journey is context setup only. After loading
+the context and required docs, stop and ask what work should be done next.
+
+Do not edit files, create tests, run implementation, start TDD, or mutate project
+state until the user gives an explicit implementation or documentation
+instruction, such as `implement`, `fix`, `edit`, `create`, `run tests`, or names a
+specific story to execute.
+
+Context activation is not execution consent.
+
+## 4. Work In Builder Mode
+
+Once the user explicitly authorizes work:
 
 - Work from `project_path` - read, edit, and create project files normally
 - Keep project docs updated as the code evolves
 - Commit at the end of each session with a descriptive English commit message
 
-## 4. Project Docs Maintenance
+## 5. Project Docs Maintenance
 
 Follow the project's existing documentation structure. Do not create a generic docs scaffold unless the user explicitly asks for one.
 
@@ -126,7 +140,7 @@ Follow the project's existing documentation structure. Do not create a generic d
 - `docs/process/worklog.md`: a meaningful milestone is completed
 - `docs/product/principles.md`: product, code, testing, or process principles change
 
-## 5. Configure `project_path`
+## 6. Configure `project_path`
 
 If the journey does not yet have an associated project:
 
@@ -134,7 +148,7 @@ If the journey does not yet have an associated project:
 uv run python -m memory journey set-path <slug> /path/to/project
 ```
 
-## 6. Finalize Session
+## 7. Finalize Session
 
 When the user says "End the session":
 

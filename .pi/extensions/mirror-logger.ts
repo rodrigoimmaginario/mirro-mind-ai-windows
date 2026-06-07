@@ -54,6 +54,9 @@ type RuntimeCatalog = {
 
 type MirrorStatusContext = {
 	hasUI: boolean;
+	sessionManager: {
+		getSessionFile(): string | undefined;
+	};
 	ui: {
 		setStatus(key: string, value: string | undefined): void;
 	};
@@ -138,7 +141,12 @@ export default function (pi: ExtensionAPI) {
 
 	async function refreshMirrorStatus(ctx: MirrorStatusContext): Promise<void> {
 		if (!ctx.hasUI) return;
-		const compactStatus = (await runPy(["-m", "memory", "welcome", "--status-line"])).trim();
+		const sessionId = ctx.sessionManager.getSessionFile() ?? null;
+		const statusArgs = ["-m", "memory", "welcome", "--status-line"];
+		if (sessionId) {
+			statusArgs.push("--session-id", sessionId);
+		}
+		const compactStatus = (await runPy(statusArgs)).trim();
 		const externalCatalog = loadInstalledPiExternalSkills();
 		const externalSkills = externalCatalog?.extensions ?? [];
 		const status = compactStatus || "◇ Mirror · ?";

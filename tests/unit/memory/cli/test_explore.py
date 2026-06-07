@@ -1,8 +1,11 @@
 """Tests for Explorer Mode CLI context loader."""
 
+from pathlib import Path
+
 from memory import MemoryClient
 from memory.cli import explore
 from memory.config import default_db_path_for_home
+from memory.models import Conversation, Message
 from memory.services.explorer_story import get_explorer_story, update_explorer_story
 from memory.services.operating_mode import activate_mode, get_active_mode
 
@@ -36,9 +39,7 @@ def test_explore_load_activates_explorer_mode_for_journey(mocker, tmp_path, caps
     assert "Explorer preserves uncertainty" in out
 
 
-def test_explore_deactivate_clears_mode_but_preserves_sticky_journey(
-    mocker, tmp_path, capsys
-):
+def test_explore_deactivate_clears_mode_but_preserves_sticky_journey(mocker, tmp_path, capsys):
     mirror_home = tmp_path / ".mirror" / "alisson-vale"
     mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
     mem.set_identity("journey", "explorer-mode", JOURNEY_CONTENT)
@@ -119,7 +120,7 @@ def test_story_clear_command_removes_stored_story(mocker, tmp_path, capsys):
     assert "Exploratory Story cleared" in capsys.readouterr().out
 
 
-def test_explore_load_includes_existing_exploratory_story(mocker, tmp_path, capsys):
+def test_explore_load_resumes_existing_exploratory_story(mocker, tmp_path, capsys):
     mirror_home = tmp_path / ".mirror" / "alisson-vale"
     mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
     mem.set_identity("journey", "explorer-mode", JOURNEY_CONTENT)
@@ -134,8 +135,45 @@ def test_explore_load_includes_existing_exploratory_story(mocker, tmp_path, caps
     explore.cmd_load("explorer-mode")
 
     out = capsys.readouterr().out
+    assert "△  EXPLORATORY STORY RESUMED" in out
     assert "=== △ Exploratory Story ===" in out
     assert "Explorer is becoming observable." in out
+
+
+def test_story_list_command_renders_durable_stories(mocker, tmp_path, capsys):
+    mirror_home = tmp_path / ".mirror" / "alisson-vale"
+    mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Explorer is becoming observable.",
+    )
+    mocker.patch("memory.cli.explore.MemoryClient", return_value=mem)
+
+    explore.cmd_story_list("explorer-mode")
+
+    out = capsys.readouterr().out
+    assert "△  EXPLORATORY STORIES" in out
+    assert "Explorer is becoming observable." in out
+    assert "active" in out
+
+
+def test_story_archive_command_archives_active_story(mocker, tmp_path, capsys):
+    mirror_home = tmp_path / ".mirror" / "alisson-vale"
+    mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Explorer is becoming observable.",
+    )
+    mocker.patch("memory.cli.explore.MemoryClient", return_value=mem)
+
+    explore.cmd_story_archive("explorer-mode")
+
+    assert get_explorer_story(mem.store, "explorer-mode") is None
+    out = capsys.readouterr().out
+    assert "△  EXPLORATORY STORY ARCHIVED" in out
+    assert "archived" in out
 
 
 def test_story_open_command_stores_story_and_renders_surface(mocker, tmp_path, capsys):
@@ -180,7 +218,9 @@ def test_story_thicken_command_updates_story_and_renders_surface(mocker, tmp_pat
     assert stored is not None
     assert stored.current_exploratory_story == "Thickened story."
     out = capsys.readouterr().out
+    assert "[[MIRROR_REQUIRED_SURFACE_BEGIN:story_thickened]]" in out
     assert "△  STORY THICKENED" in out
+    assert "[[MIRROR_REQUIRED_SURFACE_END:story_thickened]]" in out
     assert "External behavior became required." in out
     assert "Thickened story." in out
 
@@ -300,6 +340,59 @@ def test_story_snapshot_includes_attractor_and_experiment(mocker, tmp_path, caps
     assert "Validate in Pi [proposed]" in out
 
 
+def test_story_handoff_writes_source_evidence_and_full_conversation(mocker, tmp_path, capsys):
+    mirror_home = tmp_path / ".mirror" / "alisson-vale"
+    project_path = tmp_path / "project"
+    mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
+    mem.set_identity("journey", "explorer-mode", JOURNEY_CONTENT)
+    mem.journeys.set_project_path("explorer-mode", str(project_path))
+    mem.store.create_conversation(
+        Conversation(
+            id="convsource1",
+            title="Explorer source",
+            interface="pi",
+            journey="explorer-mode",
+        )
+    )
+    mem.store.add_message(
+        Message(
+            conversation_id="convsource1",
+            role="user",
+            content="Source path /Users/alissonvale/Code/mirror and token=sk-secretvalue123456",
+        )
+    )
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Current story.",
+    )
+    mocker.patch("memory.cli.explore.MemoryClient", return_value=mem)
+
+    explore.cmd_story_handoff(
+        "explorer-mode",
+        title="Evidence handoff",
+        summary="The exploration clarified evidence.",
+        editorial_synthesis="The exploration continuously thickened around evidence.",
+        source_conversation_ids=["convsource1:origin conversation"],
+        include_full_conversation=True,
+    )
+
+    stored = get_explorer_story(mem.store, "explorer-mode")
+    assert stored is not None
+    assert stored.source_conversations[0].conversation_id == "convsource1"
+    assert stored.builder_handoff is not None
+    assert stored.builder_handoff.full_conversation_path is not None
+    full_text = Path(stored.builder_handoff.full_conversation_path).read_text()
+    assert "[LOCAL_PATH]" in full_text
+    assert "token=[SECRET]" in full_text
+    out = capsys.readouterr().out
+    assert "[[MIRROR_REQUIRED_SURFACE_BEGIN:builder_handoff_proposed]]" in out
+    assert "△  BUILDER HANDOFF PROPOSED" in out
+    assert "[[MIRROR_REQUIRED_SURFACE_END:builder_handoff_proposed]]" in out
+    assert "full-conversation.md" in out
+    assert "source evidence" in out
+
+
 def test_story_handoff_writes_docs_stores_and_renders_surface(mocker, tmp_path, capsys):
     mirror_home = tmp_path / ".mirror" / "alisson-vale"
     project_path = tmp_path / "project"
@@ -368,6 +461,7 @@ def test_story_promote_confirms_handoff_and_invokes_builder(mocker, tmp_path):
 
     build.assert_called_once_with("explorer-mode")
     stored = get_explorer_story(mem.store, "explorer-mode")
-    assert stored is not None
-    assert stored.builder_handoff is not None
-    assert stored.builder_handoff.readiness == "confirmed"
+    assert stored is None
+    stories = mem.store.list_explorer_story_records("explorer-mode")
+    assert stories[0]["status"] == "promoted"
+    assert "confirmed" in stories[0]["builder_handoff_json"]

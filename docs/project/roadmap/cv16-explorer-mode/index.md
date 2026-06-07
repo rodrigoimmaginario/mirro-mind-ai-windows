@@ -2,11 +2,11 @@
 
 # CV16 — Explorer Mode
 
-**Status:** 🟢 DS0–DS7 Done
+**Status:** ✅ First Explorer Mode release complete
 
 **Source exploration:** [ES-003 Explorer Mode](../../exploration/es-003-explorer-mode.md)
 
-**Release intent:** first Explorer Mode release after DS7 Promotion Handoff and DS8 Persistence and Visibility
+**Release:** v0.23.0 — Durable Explorer Mode
 
 ---
 
@@ -70,16 +70,20 @@ possible. It does not silently convert exploration into delivery.
 | [CV16.DS5](cv16-ds5-story-thickening-surfaces/index.md) | Story thickening surfaces | Mirror renders Exploratory Story Opened, Story Thickened, and Narrative Field Snapshot at the right moments | ✅ Done |
 | [CV16.DS6](cv16-ds6-experiment-proposals-and-attractors/index.md) | Experiment proposals and attractors | A thickened exploration can name attractors and propose concrete experiments without pretending to be Builder delivery | ✅ Done |
 | [CV16.DS7](cv16-ds7-promotion-handoff-to-builder/index.md) | Promotion handoff to Builder | A confirmed experiment or exploration can produce a minimal Builder handoff without pretending to be a complete delivery plan | ✅ Done |
-| [CV16.DS8](cv16-ds8-persistence-and-visibility/index.md) | Persistence and visibility | Exploratory state survives beyond one fragile session and handoff evidence is reviewed, obfuscated, and visible before release | 🟡 Planned |
-| [CV16.DS9](cv16-ds9-required-surface-rendering-contract/index.md) | Required surface rendering and operational boundary contract | Explorer surfaces are marked as user-facing output and clear operational tasks are routed out of Explorer before file/code mutation | 🟡 Planned |
-| CV16.DS10 | Release packaging and feedback runway | Package the first Explorer Mode release after DS7, DS8, and Explorer boundary hardening, then leave multiple stories and advanced Explorer capabilities for feedback-driven future work | 🟡 Planned |
+| [CV16.DS8](cv16-ds8-persistence-and-visibility/index.md) | Persistence and visibility | Exploratory state survives beyond one fragile session first, then handoff evidence becomes reviewed, obfuscated, and visible before release | ✅ Done |
+| CV16.DS8.1 | Durable Explorer Stories | Exploratory Stories become durable, resumable, visible records with active, archived, and promoted lifecycle states | ✅ Done |
+| CV16.DS8.2 | Editorial Handoff Evidence | Builder handoffs gain source evidence, completeness review, and optional privacy-safe full conversation material | ✅ Done |
+| [CV16.DS9](cv16-ds9-required-surface-rendering-contract/index.md) | Required surface rendering and operational boundary contract | Explorer surfaces are marked as user-facing output and clear operational tasks are routed out of Explorer before file/code mutation | ✅ Done |
+| CV16.DS10 | Release packaging and feedback runway | Package the first Explorer Mode release after DS7, DS8, and Explorer boundary hardening, then leave multiple stories and advanced Explorer capabilities for feedback-driven future work | ✅ Done |
 
 The first enabling slice is the runtime status bar foundation because Explorer
 adds a new operating lens and Mirror should make the active lens visible before
 adding another mode. After that, the roadmap should move to the behavior
-contract, not storage or web UI. Persistence is intentionally delayed until
-Explorer proves that it can hold uncertainty and thicken stories coherently in
-conversation.
+contract, not storage or web UI. Persistence was intentionally delayed until
+Explorer proved that it could hold uncertainty and thicken stories coherently in
+conversation. DS8 now splits persistence from evidence: DS8.1 gives Explorer
+Stories durable state and lifecycle visibility; DS8.2 turns Builder handoff into
+a provenance-rich, privacy-safe editorial evidence package.
 
 DS4 deliberately removed signal and radar modeling from the first behavior slice.
 The observable value is the Exploratory Story itself; signal vocabulary can return
@@ -130,17 +134,17 @@ later only if practice shows it carries real product value.
 
 ## Done Condition
 
-CV16 first release is done when a user can explicitly enter Explorer Mode for a
+CV16 first release is done. A user can explicitly enter Explorer Mode for a
 journey, explore across multiple turns with visible story thickening, request a
 Narrative Field Snapshot, receive an experiment proposal with attractors,
 explicitly promote the exploration into Builder without hidden mode switching or
 premature construction, recover the exploration beyond fragile runtime state, and
 trust that required Explorer surfaces are rendered visibly before assistant
-interpretation, and avoid confusing exploratory work with operational Builder
-mutations when the user asks to edit files, apply procedures, or create code.
-Multiple simultaneous Exploratory Stories and advanced Explorer capabilities are
-intentionally deferred until users experiment with the first release and generate
-feedback.
+interpretation. Explorer also avoids confusing exploratory work with operational
+Builder mutations when the user asks to edit files, apply procedures, or create
+code. Multiple simultaneous Exploratory Stories and advanced Explorer
+capabilities are intentionally deferred until users experiment with the first
+release and generate feedback.
 
 ---
 

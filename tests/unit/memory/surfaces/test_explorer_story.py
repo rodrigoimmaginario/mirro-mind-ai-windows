@@ -4,6 +4,7 @@ from memory.services.explorer_story import (
     ExplorerAttractor,
     ExplorerBuilderHandoff,
     ExplorerExperimentProposal,
+    ExplorerSourceConversation,
     ExplorerStory,
 )
 from memory.surfaces.explorer_story import (
@@ -11,6 +12,9 @@ from memory.surfaces.explorer_story import (
     render_builder_handoff_proposed,
     render_experiment_proposal,
     render_exploratory_story_opened,
+    render_exploratory_story_resumed,
+    render_explorer_story_archived,
+    render_explorer_story_list,
     render_missing_exploratory_story,
     render_narrative_field_snapshot,
     render_no_builder_handoff,
@@ -42,6 +46,14 @@ def _story() -> ExplorerStory:
             exploratory_story_path="/tmp/exploration/exploratory-story.md",
             handoff_info_path="/tmp/exploration/handoff-info.md",
             product_design_proposal_path="/tmp/exploration/product-design-proposal.md",
+            full_conversation_path="/tmp/exploration/full-conversation.md",
+        ),
+        source_conversations=(
+            ExplorerSourceConversation(
+                conversation_id="conv-123",
+                title="Explorer source",
+                role="origin conversation",
+            ),
         ),
     )
 
@@ -52,6 +64,46 @@ def test_opened_surface_renders_story():
     assert "△  EXPLORATORY STORY OPENED" in rendered
     assert "explorer-mode" in rendered
     assert "Explorer centers on one accumulated story." in rendered
+
+
+def test_resumed_surface_renders_lifecycle():
+    rendered = render_exploratory_story_resumed(
+        ExplorerStory(
+            journey="explorer-mode",
+            current_exploratory_story="Durable story.",
+            id="story-1",
+            status="active",
+        )
+    )
+
+    assert "△  EXPLORATORY STORY RESUMED" in rendered
+    assert "story-1" in rendered
+    assert "active" in rendered
+    assert "Durable story." in rendered
+
+
+def test_story_list_surface_renders_active_and_historical_stories():
+    rendered = render_explorer_story_list(
+        "explorer-mode",
+        [
+            ExplorerStory(journey="explorer-mode", title="Active exploration", status="active"),
+            ExplorerStory(journey="explorer-mode", title="Promoted exploration", status="promoted"),
+        ],
+    )
+
+    assert "△  EXPLORATORY STORIES" in rendered
+    assert "Active exploration [active]" in rendered
+    assert "Promoted exploration [promoted]" in rendered
+
+
+def test_archive_surface_renders_archived_story():
+    rendered = render_explorer_story_archived(
+        ExplorerStory(journey="explorer-mode", title="Archived exploration", status="archived"),
+        journey="explorer-mode",
+    )
+
+    assert "△  EXPLORATORY STORY ARCHIVED" in rendered
+    assert "archived" in rendered
 
 
 def test_thickened_surface_renders_change_and_story():
@@ -99,6 +151,8 @@ def test_builder_handoff_surface_renders_artifacts_and_boundary():
     assert "exploratory-story.md" in rendered
     assert "handoff-info.md" in rendered
     assert "product-design-proposal.md" in rendered
+    assert "full-conversation.md" in rendered
+    assert "conv-123" in rendered
     assert "Builder executes only after explicit confirmation" in rendered
 
 

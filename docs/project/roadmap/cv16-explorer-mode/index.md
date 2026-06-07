@@ -2,8 +2,10 @@
 
 # CV16 — Explorer Mode
 
-**Status:** 🟡 Planned  
-**Source exploration:** [ES-003 Explorer Mode](../../exploration/es-003-explorer-mode.md)  
+**Status:** 🟢 DS0–DS3 Done
+
+**Source exploration:** [ES-003 Explorer Mode](../../exploration/es-003-explorer-mode.md)
+
 **Release intent:** future minor release after roadmap confirmation
 
 ---
@@ -63,7 +65,7 @@ becomes possible. It does not silently convert exploration into delivery.
 | [CV16.DS0](cv16-ds0-runtime-status-bar-foundation/index.md) | Runtime status bar foundation | Pi footer shows active Mirror identity, active journey, active mode, and health marker as a cross-mode orientation foundation | ✅ Done |
 | [CV16.DS1](cv16-ds1-mode-transition-surface/index.md) | Mode transition surface | Mode changes render a compact conversational surface for Mirror, Builder, and Explorer lenses, including persona routing and Builder journey context | ✅ Done |
 | [CV16.DS2](cv16-ds2-discard-current-conversation-skill/index.md) | Discard current conversation skill | Test sessions can be quit without preserving the current conversation in Mirror history | ✅ Done |
-| CV16.DS3 | Explorer activation contract | A user can explicitly enter and leave Explorer Mode for a journey through natural language, with Mirror using contained commands only as internal behavioral resources | 🟡 Planned |
+| [CV16.DS3](cv16-ds3-explorer-activation-contract/index.md) | Explorer activation contract | A user can explicitly enter and leave Explorer Mode for a journey through natural language, with Mirror using contained commands only as internal behavioral resources | ✅ Done |
 | CV16.DS4 | In-session exploratory field | Explorer Mode maintains one current Exploratory Story per journey session, with current signal, radar excerpt, narrative summary, and last card context available for the next turn | 🟡 Planned |
 | CV16.DS5 | Story thickening surfaces | Mirror renders Explorer Mode Active, Possible Signal, Exploratory Story Opened, Story Thickened, Signal Radar, Narrative Field Snapshot, and Promotion Proposal at the right moments | 🟡 Planned |
 | CV16.DS6 | Promotion handoff to Builder | A thickened exploration can produce an explicit promotion proposal and a minimal Builder handoff without pretending to be a complete delivery plan | 🟡 Planned |

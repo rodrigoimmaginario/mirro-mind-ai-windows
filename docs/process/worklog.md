@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-06-06 — Explorer activation contract completed
+
+Added the explicit Explorer Mode entry and exit contract. `python -m memory explore load <slug>` remains the contained activation operation and now has regression coverage for sticky journey context and non-conversation behavior. `python -m memory explore deactivate` provides the semantic exit path, clears only the explicit Explorer lens, and renders a visible return-to-Mirror confirmation while preserving sticky journey context. The Pi skill now documents natural-language entry, exit, and the no-silent-promotion boundary.
+
+Validation: focused Explorer CLI, operating-mode, and welcome status tests passed; ruff checks passed for touched Explorer files; manual smoke confirmed Explorer activation, status-line orientation, deactivation, and fallback to Mirror Mode with journey context preserved.
+
 ### 2026-06-06 — Discard current conversation skill added
 
 Added a runtime hygiene path for test sessions: `python -m memory conversation-logger discard-current` deletes the current runtime conversation through the existing conversation deletion service and marks the runtime session so the assistant confirmation is not logged as a new conversation. Added `/mm-discard` for Pi, documented the command, and updated CV16 with DS2 as done.

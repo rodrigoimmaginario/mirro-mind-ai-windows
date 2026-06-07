@@ -11,7 +11,7 @@ import argparse
 import sys
 
 from memory.client import MemoryClient
-from memory.services.operating_mode import activate_mode
+from memory.services.operating_mode import activate_mode, deactivate_mode
 from memory.skills.mirror import _persist_global_sticky_defaults
 from memory.surfaces.mode_transition import render_explorer_mode_transition
 
@@ -25,6 +25,21 @@ While Explorer Mode is active:
 - Preserve signals, tensions, hypotheses, corrections, and emerging story shape.
 - Render Story Thickened when new material changes the accumulated story.
 - Do not promote to Builder or Delivery without explicit user confirmation.
+"""
+
+EXPLORER_DEACTIVATED_SURFACE = """Mirror
+╭────────────────────────────────────────────────────────╮
+│        △  EXPLORER MODE DEACTIVATED                    │
+│                                                        │
+│  current lens                                          │
+│  ◌ Mirror Mode                                         │
+│                                                        │
+│  context                                               │
+│  Journey context remains available when it is sticky.  │
+│                                                        │
+│  boundary                                              │
+│  Explorer lens ended. Uncertainty was not promoted.    │
+╰────────────────────────────────────────────────────────╯
 """
 
 
@@ -44,6 +59,12 @@ def cmd_load(slug: str) -> None:
     print("\n" + EXPLORER_GUIDANCE)
 
 
+def cmd_deactivate() -> None:
+    mem = MemoryClient()
+    deactivate_mode(mem.store)
+    print(EXPLORER_DEACTIVATED_SURFACE)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Explorer Mode context loader")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -51,9 +72,13 @@ def main(argv: list[str] | None = None) -> None:
     p_load = sub.add_parser("load", help="Activate Explorer Mode for a journey")
     p_load.add_argument("slug", help="Journey ID")
 
+    sub.add_parser("deactivate", help="Deactivate Explorer Mode and return to Mirror Mode")
+
     args = parser.parse_args(argv)
     if args.command == "load":
         cmd_load(args.slug)
+    elif args.command == "deactivate":
+        cmd_deactivate()
 
 
 if __name__ == "__main__":

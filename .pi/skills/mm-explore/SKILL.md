@@ -84,12 +84,27 @@ sair do modo explorador
 voltar ao modo normal
 ```
 
-Mirror may then call the internal operation:
+Mirror should then call the contained Explorer operation:
 
 ```bash
-uv run python -m memory mode deactivate
+uv run python -m memory explore deactivate
 ```
 
-Deactivation leaves the explicit Explorer lens and returns to Mirror Mode when
-journey context remains active. Rendering and clearing the status bar are
-internal effects, not user-facing operations.
+Render the deactivation confirmation visibly to the user. Deactivation leaves the
+explicit Explorer lens and returns to Mirror Mode when journey context remains
+active. It does not clear sticky journey context or promote the exploration to
+Builder. Rendering and clearing the status bar are internal effects, not
+user-facing operations.
+
+## 4. Promotion Boundary
+
+When the user says:
+
+```text
+promover essa exploração para construção
+promover para builder
+```
+
+Do not switch to Builder silently. Ask for explicit confirmation unless a later
+promotion handoff story has already produced a concrete Builder handoff and the
+user has confirmed it.

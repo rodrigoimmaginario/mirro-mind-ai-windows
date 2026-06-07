@@ -298,3 +298,72 @@ def test_story_snapshot_includes_attractor_and_experiment(mocker, tmp_path, caps
     assert "△  NARRATIVE FIELD SNAPSHOT" in out
     assert "External validation [proposed]" in out
     assert "Validate in Pi [proposed]" in out
+
+
+def test_story_handoff_writes_docs_stores_and_renders_surface(mocker, tmp_path, capsys):
+    mirror_home = tmp_path / ".mirror" / "alisson-vale"
+    project_path = tmp_path / "project"
+    mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
+    mem.set_identity("journey", "explorer-mode", JOURNEY_CONTENT)
+    mem.journeys.set_project_path("explorer-mode", str(project_path))
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Current story.",
+    )
+    mocker.patch("memory.cli.explore.MemoryClient", return_value=mem)
+
+    explore.cmd_story_handoff(
+        "explorer-mode",
+        title="Build Explorer persistence",
+        summary="The exploration clarified the Builder boundary.",
+    )
+
+    stored = get_explorer_story(mem.store, "explorer-mode")
+    assert stored is not None
+    assert stored.builder_handoff is not None
+    assert stored.builder_handoff.title == "Build Explorer persistence"
+    assert stored.builder_handoff.exploratory_story_path is not None
+    assert "docs/project/explorations" in stored.builder_handoff.exploratory_story_path
+    assert (project_path / "docs" / "project" / "explorations").is_dir()
+    out = capsys.readouterr().out
+    assert "△  BUILDER HANDOFF PROPOSED" in out
+    assert "exploratory-story.md" in out
+
+
+def test_story_promote_requires_existing_handoff(mocker, tmp_path, capsys):
+    mirror_home = tmp_path / ".mirror" / "alisson-vale"
+    mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
+    mocker.patch("memory.cli.explore.MemoryClient", return_value=mem)
+    build = mocker.patch("memory.cli.explore.build_cli.cmd_load")
+
+    explore.cmd_story_promote("explorer-mode")
+
+    build.assert_not_called()
+    out = capsys.readouterr().out
+    assert "△  NO BUILDER HANDOFF" in out
+
+
+def test_story_promote_confirms_handoff_and_invokes_builder(mocker, tmp_path):
+    mirror_home = tmp_path / ".mirror" / "alisson-vale"
+    mem = MemoryClient(db_path=default_db_path_for_home(mirror_home))
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Current story.",
+    )
+    mocker.patch("memory.cli.explore.MemoryClient", return_value=mem)
+    explore.cmd_story_handoff(
+        "explorer-mode",
+        title="Build Explorer persistence",
+        summary="The exploration clarified the Builder boundary.",
+    )
+    build = mocker.patch("memory.cli.explore.build_cli.cmd_load")
+
+    explore.cmd_story_promote("explorer-mode")
+
+    build.assert_called_once_with("explorer-mode")
+    stored = get_explorer_story(mem.store, "explorer-mode")
+    assert stored is not None
+    assert stored.builder_handoff is not None
+    assert stored.builder_handoff.readiness == "confirmed"

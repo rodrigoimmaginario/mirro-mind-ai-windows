@@ -12,6 +12,12 @@ Scaling rule: keep this as a single file through the 1.0 readiness cycle. After
 
 ## Done
 
+### 2026-06-06 — Builder handoff artifact set added
+
+Added the explicit Explorer-to-Builder transfer boundary. `python -m memory explore story handoff <journey>` now writes a transfer document set under `docs/project/explorations/<es-id>/` when the journey has a project path: `exploratory-story.md`, `handoff-info.md`, and `product-design-proposal.md`. The handoff surface shows artifact paths and preserves the no-silent-promotion boundary. `python -m memory explore story promote <journey>` confirms the stored handoff and then activates Builder through the normal Builder load path.
+
+Validation: Explorer Story service, Explorer handoff artifact, surface, and CLI tests passed; ruff checks passed for touched Explorer files; technical smoke confirmed artifact generation, handoff proposal, promotion to Builder, and cleanup behavior.
+
 ### 2026-06-06 — Experiment proposals and attractors added
 
 Extended the in-session Exploratory Story with visible attractors and small experiment proposals. `python -m memory explore story attractors <journey>` now replaces the current surfaced attractor, `story experiment <journey>` stores a proposed learning experiment, and Narrative Field Snapshot includes both. The implementation keeps attractors and experiments inside runtime story state, avoids hidden detection, and does not activate Builder.

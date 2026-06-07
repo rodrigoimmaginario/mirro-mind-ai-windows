@@ -11,6 +11,34 @@ resolved.
 
 ## Completed Decisions
 
+### Explorer handoff produces transfer documents for Builder
+
+**Date:** 2026-06-06
+**Reference:** [CV16.DS7 Promotion Handoff to Builder](roadmap/cv16-explorer-mode/cv16-ds7-promotion-handoff-to-builder/index.md)
+
+Explorer-to-Builder promotion must produce a transfer document set, not only switch modes with contextual memory. The handoff output lives under `docs/project/explorations/<es-id>/` when the active journey has a project path, with three documents: `exploratory-story.md`, `handoff-info.md`, and `product-design-proposal.md`.
+
+Consequences:
+
+- Builder receives a concrete discovery narrative, caution/boundary document, and product design proposal before roadmap work begins.
+- The product design proposal describes behavior and product shape, not implementation architecture.
+- Promotion remains a two-step process: generate handoff, then confirm Builder.
+- DS8 can later persist Exploratory Story records and connect durable story IDs to these artifact directories.
+
+### Explorer Mode first release closes at handoff plus persistence
+
+**Date:** 2026-06-06
+**Reference:** [CV16 Explorer Mode](roadmap/cv16-explorer-mode/index.md)
+
+The first Explorer Mode release will close after DS7 Promotion Handoff to Builder and DS8 Persistence and Visibility, followed by release packaging. Multiple simultaneous Exploratory Stories and more advanced Explorer capabilities are intentionally deferred until users can experiment with the first coherent version and generate feedback.
+
+Consequences:
+
+- DS7 and DS8 are the remaining product stories for the first Explorer release.
+- Release packaging follows DS8 rather than expanding scope into multiple stories.
+- Multiple Exploratory Stories become a future feedback-driven capability, not a prerequisite for the first release.
+- The first release promise is a complete single-story flow: enter Explorer, open and thicken a story, name attractors, propose experiments, explicitly hand off to Builder, and recover the exploration beyond fragile runtime state.
+
 ### Explorer attractors are visible story state, not hidden detection
 
 **Date:** 2026-06-06

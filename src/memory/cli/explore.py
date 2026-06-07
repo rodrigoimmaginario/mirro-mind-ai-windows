@@ -9,15 +9,20 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
+from memory.cli import build as build_cli
 from memory.client import MemoryClient
+from memory.services.explorer_handoff import write_builder_handoff_artifacts
 from memory.services.explorer_story import (
     ExplorerAttractor,
+    ExplorerBuilderHandoff,
     ExplorerExperimentProposal,
     clear_explorer_story,
     get_explorer_story,
     render_explorer_story_context,
     set_explorer_attractors,
+    set_explorer_builder_handoff,
     set_explorer_experiment_proposal,
     update_explorer_story,
 )
@@ -25,10 +30,12 @@ from memory.services.operating_mode import activate_mode, deactivate_mode
 from memory.skills.mirror import _persist_global_sticky_defaults
 from memory.surfaces.explorer_story import (
     render_attractors_emerging,
+    render_builder_handoff_proposed,
     render_experiment_proposal,
     render_exploratory_story_opened,
     render_missing_exploratory_story,
     render_narrative_field_snapshot,
+    render_no_builder_handoff,
     render_story_thickened,
 )
 from memory.surfaces.mode_transition import render_explorer_mode_transition
@@ -198,6 +205,45 @@ def cmd_story_experiment(
     print(render_experiment_proposal(updated))
 
 
+def cmd_story_handoff(slug: str, *, title: str, summary: str | None) -> None:
+    mem = MemoryClient()
+    story = get_explorer_story(mem.store, slug)
+    if not story:
+        print(render_missing_exploratory_story(journey=slug))
+        return
+    project_path = mem.journeys.get_project_path(slug)
+    if project_path:
+        handoff = write_builder_handoff_artifacts(
+            Path(project_path),
+            story,
+            title=title,
+            summary=summary,
+        )
+    else:
+        handoff = ExplorerBuilderHandoff(title=title, summary=summary, readiness="proposed")
+    updated = set_explorer_builder_handoff(mem.store, slug, handoff)
+    print(render_builder_handoff_proposed(updated))
+
+
+def cmd_story_promote(slug: str) -> None:
+    mem = MemoryClient()
+    story = get_explorer_story(mem.store, slug)
+    if not story or not story.builder_handoff:
+        print(render_no_builder_handoff(journey=slug))
+        return
+    confirmed = ExplorerBuilderHandoff(
+        title=story.builder_handoff.title,
+        summary=story.builder_handoff.summary,
+        readiness="confirmed",
+        artifact_dir=story.builder_handoff.artifact_dir,
+        exploratory_story_path=story.builder_handoff.exploratory_story_path,
+        handoff_info_path=story.builder_handoff.handoff_info_path,
+        product_design_proposal_path=story.builder_handoff.product_design_proposal_path,
+    )
+    set_explorer_builder_handoff(mem.store, slug, confirmed)
+    build_cli.cmd_load(slug)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Explorer Mode context loader")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -260,6 +306,14 @@ def main(argv: list[str] | None = None) -> None:
         help="Experiment status",
     )
 
+    p_story_handoff = story_sub.add_parser("handoff", help="Propose a Builder handoff")
+    p_story_handoff.add_argument("slug", help="Journey ID")
+    p_story_handoff.add_argument("--title", required=True, help="Handoff title")
+    p_story_handoff.add_argument("--summary", default=None, help="Handoff summary")
+
+    p_story_promote = story_sub.add_parser("promote", help="Confirm handoff and enter Builder")
+    p_story_promote.add_argument("slug", help="Journey ID")
+
     args = parser.parse_args(argv)
     if args.command == "load":
         cmd_load(args.slug)
@@ -308,6 +362,10 @@ def main(argv: list[str] | None = None) -> None:
                 description=args.description,
                 status=args.status,
             )
+        elif args.story_command == "handoff":
+            cmd_story_handoff(args.slug, title=args.title, summary=args.summary)
+        elif args.story_command == "promote":
+            cmd_story_promote(args.slug)
 
 
 if __name__ == "__main__":

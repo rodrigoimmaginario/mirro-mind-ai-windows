@@ -56,6 +56,49 @@ def render_experiment_proposal(story: ExplorerStory) -> str:
     return _box("△  EXPERIMENT PROPOSAL", rows)
 
 
+def render_builder_handoff_proposed(story: ExplorerStory) -> str:
+    rows = [("journey", story.journey)]
+    handoff = story.builder_handoff
+    if handoff:
+        rows.append(("handoff", handoff.title))
+        if handoff.summary:
+            rows.append(("summary", handoff.summary))
+        if handoff.artifact_dir:
+            rows.append(("artifact directory", handoff.artifact_dir))
+        if handoff.exploratory_story_path:
+            rows.append(("exploratory story", handoff.exploratory_story_path))
+        if handoff.handoff_info_path:
+            rows.append(("handoff info", handoff.handoff_info_path))
+        if handoff.product_design_proposal_path:
+            rows.append(("product design", handoff.product_design_proposal_path))
+    else:
+        rows.append(("handoff", "No Builder handoff has been proposed yet."))
+    if story.current_exploratory_story:
+        rows.append(("current story", story.current_exploratory_story))
+    for attractor in story.attractors:
+        rows.append(("attractor", f"{attractor.label} [{attractor.status}]"))
+    if story.experiment_proposal:
+        rows.append(
+            (
+                "experiment proposal",
+                f"{story.experiment_proposal.title} [{story.experiment_proposal.status}]",
+            )
+        )
+    rows.append(("boundary", "Builder executes only after explicit confirmation."))
+    return _box("△  BUILDER HANDOFF PROPOSED", rows)
+
+
+def render_no_builder_handoff(*, journey: str) -> str:
+    return _box(
+        "△  NO BUILDER HANDOFF",
+        [
+            ("journey", journey),
+            ("state", "No Builder handoff proposal exists for this story."),
+            ("boundary", "Ask for a handoff proposal before promoting to Builder."),
+        ],
+    )
+
+
 def render_missing_exploratory_story(*, journey: str) -> str:
     return _box(
         "△  NO EXPLORATORY STORY",
@@ -120,12 +163,23 @@ def _wrap(text: str) -> list[str]:
     if not words:
         return [""]
     lines: list[str] = []
-    current = words[0]
-    for word in words[1:]:
-        if len(current) + 1 + len(word) <= max_width:
-            current += " " + word
-        else:
-            lines.append(current)
-            current = word
-    lines.append(current)
+    current = ""
+    for word in words:
+        chunks = _chunk_word(word, max_width)
+        for chunk in chunks:
+            if not current:
+                current = chunk
+            elif len(current) + 1 + len(chunk) <= max_width:
+                current += " " + chunk
+            else:
+                lines.append(current)
+                current = chunk
+    if current:
+        lines.append(current)
     return lines
+
+
+def _chunk_word(word: str, width: int) -> list[str]:
+    if len(word) <= width:
+        return [word]
+    return [word[index : index + width] for index in range(0, len(word), width)]

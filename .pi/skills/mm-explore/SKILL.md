@@ -133,8 +133,30 @@ When the user says:
 ```text
 promover essa exploração para construção
 promover para builder
+isso já está pronto para virar Builder?
 ```
 
-Do not switch to Builder silently. Ask for explicit confirmation unless a later
-promotion handoff story has already produced a concrete Builder handoff and the
-user has confirmed it.
+Do not switch to Builder silently. First produce a transfer document set and
+render the handoff proposal:
+
+```bash
+uv run python -m memory explore story handoff <slug> --title "..." --summary "..."
+```
+
+Render `△ BUILDER HANDOFF PROPOSED` visibly, including the generated document
+paths under `docs/project/explorations/<es-id>/` when available:
+
+```text
+exploratory-story.md
+handoff-info.md
+product-design-proposal.md
+```
+
+Ask for explicit confirmation. Only after the user confirms should Mirror call:
+
+```bash
+uv run python -m memory explore story promote <slug>
+```
+
+Promotion activates Builder Mode through the normal Builder load path. If the
+user does not confirm, remain in Explorer Mode and continue thickening the story.

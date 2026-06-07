@@ -30,6 +30,17 @@ class ExplorerExperimentProposal:
 
 
 @dataclass(frozen=True)
+class ExplorerBuilderHandoff:
+    title: str
+    summary: str | None = None
+    readiness: str = "proposed"
+    artifact_dir: str | None = None
+    exploratory_story_path: str | None = None
+    handoff_info_path: str | None = None
+    product_design_proposal_path: str | None = None
+
+
+@dataclass(frozen=True)
 class ExplorerStory:
     journey: str
     current_exploratory_story: str | None = None
@@ -37,6 +48,7 @@ class ExplorerStory:
     last_story_card: str | None = None
     attractors: tuple[ExplorerAttractor, ...] = ()
     experiment_proposal: ExplorerExperimentProposal | None = None
+    builder_handoff: ExplorerBuilderHandoff | None = None
 
 
 def _session_id(journey: str) -> str:
@@ -77,6 +89,7 @@ def get_explorer_story(store: Store, journey: str) -> ExplorerStory | None:
         last_story_card=_string_or_none(data.get("last_story_card")),
         attractors=_parse_attractors(data.get("attractors")),
         experiment_proposal=_parse_experiment(data.get("experiment_proposal")),
+        builder_handoff=_parse_handoff(data.get("builder_handoff")),
     )
 
 
@@ -121,6 +134,7 @@ def update_explorer_story(
         ),
         attractors=existing.attractors if existing else (),
         experiment_proposal=existing.experiment_proposal if existing else None,
+        builder_handoff=existing.builder_handoff if existing else None,
     )
 
     _store_story(store, updated)
@@ -144,6 +158,7 @@ def set_explorer_attractors(
         last_story_card=existing.last_story_card if existing else None,
         attractors=tuple(_normalize_attractor(attractor) for attractor in attractors),
         experiment_proposal=existing.experiment_proposal if existing else None,
+        builder_handoff=existing.builder_handoff if existing else None,
     )
     _store_story(store, updated)
     return updated
@@ -166,6 +181,30 @@ def set_explorer_experiment_proposal(
         last_story_card=existing.last_story_card if existing else None,
         attractors=existing.attractors if existing else (),
         experiment_proposal=_normalize_experiment(proposal),
+        builder_handoff=existing.builder_handoff if existing else None,
+    )
+    _store_story(store, updated)
+    return updated
+
+
+def set_explorer_builder_handoff(
+    store: Store,
+    journey: str,
+    handoff: ExplorerBuilderHandoff,
+) -> ExplorerStory:
+    """Replace the visible Builder handoff proposal for the current story."""
+    normalized_journey = journey.strip()
+    if not normalized_journey:
+        raise ValueError("journey must not be empty")
+    existing = get_explorer_story(store, normalized_journey)
+    updated = ExplorerStory(
+        journey=normalized_journey,
+        current_exploratory_story=existing.current_exploratory_story if existing else None,
+        narrative_field_summary=existing.narrative_field_summary if existing else None,
+        last_story_card=existing.last_story_card if existing else None,
+        attractors=existing.attractors if existing else (),
+        experiment_proposal=existing.experiment_proposal if existing else None,
+        builder_handoff=_normalize_handoff(handoff),
     )
     _store_story(store, updated)
     return updated
@@ -210,6 +249,16 @@ def render_explorer_story_context(story: ExplorerStory) -> str:
         )
         if story.experiment_proposal.description:
             lines.append(story.experiment_proposal.description)
+    if story.builder_handoff:
+        lines.extend(
+            [
+                "",
+                "builder handoff:",
+                f"{story.builder_handoff.title} [{story.builder_handoff.readiness}]",
+            ]
+        )
+        if story.builder_handoff.artifact_dir:
+            lines.append(f"artifact_dir: {story.builder_handoff.artifact_dir}")
     return "\n".join(lines)
 
 
@@ -239,6 +288,19 @@ def _store_story(store: Store, story: ExplorerStory) -> None:
                         "status": story.experiment_proposal.status,
                     }
                     if story.experiment_proposal
+                    else None
+                ),
+                "builder_handoff": (
+                    {
+                        "title": story.builder_handoff.title,
+                        "summary": story.builder_handoff.summary,
+                        "readiness": story.builder_handoff.readiness,
+                        "artifact_dir": story.builder_handoff.artifact_dir,
+                        "exploratory_story_path": story.builder_handoff.exploratory_story_path,
+                        "handoff_info_path": story.builder_handoff.handoff_info_path,
+                        "product_design_proposal_path": story.builder_handoff.product_design_proposal_path,
+                    }
+                    if story.builder_handoff
                     else None
                 ),
             },
@@ -280,6 +342,25 @@ def _parse_experiment(value: object) -> ExplorerExperimentProposal | None:
     )
 
 
+def _parse_handoff(value: object) -> ExplorerBuilderHandoff | None:
+    if not isinstance(value, dict):
+        return None
+    title = _string_or_none(value.get("title"))
+    if not title:
+        return None
+    return ExplorerBuilderHandoff(
+        title=title,
+        summary=_string_or_none(value.get("summary")),
+        readiness=_valid_handoff_readiness(value.get("readiness")),
+        artifact_dir=_string_or_none(value.get("artifact_dir")),
+        exploratory_story_path=_string_or_none(value.get("exploratory_story_path")),
+        handoff_info_path=_string_or_none(value.get("handoff_info_path")),
+        product_design_proposal_path=_string_or_none(
+            value.get("product_design_proposal_path")
+        ),
+    )
+
+
 def _normalize_attractor(attractor: ExplorerAttractor) -> ExplorerAttractor:
     label = _string_or_none(attractor.label)
     if not label:
@@ -302,8 +383,31 @@ def _normalize_experiment(proposal: ExplorerExperimentProposal) -> ExplorerExper
     )
 
 
+def _normalize_handoff(handoff: ExplorerBuilderHandoff) -> ExplorerBuilderHandoff:
+    title = _string_or_none(handoff.title)
+    if not title:
+        raise ValueError("builder handoff title must not be empty")
+    return ExplorerBuilderHandoff(
+        title=title,
+        summary=_string_or_none(handoff.summary),
+        readiness=_valid_handoff_readiness(handoff.readiness),
+        artifact_dir=_string_or_none(handoff.artifact_dir),
+        exploratory_story_path=_string_or_none(handoff.exploratory_story_path),
+        handoff_info_path=_string_or_none(handoff.handoff_info_path),
+        product_design_proposal_path=_string_or_none(
+            handoff.product_design_proposal_path
+        ),
+    )
+
+
 def _valid_status(value: object) -> str:
     if value in {"proposed", "accepted"}:
+        return str(value)
+    return "proposed"
+
+
+def _valid_handoff_readiness(value: object) -> str:
+    if value in {"proposed", "confirmed"}:
         return str(value)
     return "proposed"
 

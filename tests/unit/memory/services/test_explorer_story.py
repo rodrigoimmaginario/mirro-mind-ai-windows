@@ -4,11 +4,13 @@ from memory import MemoryClient
 from memory.config import default_db_path_for_home
 from memory.services.explorer_story import (
     ExplorerAttractor,
+    ExplorerBuilderHandoff,
     ExplorerExperimentProposal,
     clear_explorer_story,
     get_explorer_story,
     render_explorer_story_context,
     set_explorer_attractors,
+    set_explorer_builder_handoff,
     set_explorer_experiment_proposal,
     update_explorer_story,
 )
@@ -200,6 +202,57 @@ def test_setting_experiment_preserves_attractors_and_story(tmp_path):
     assert updated.experiment_proposal.title == "Validate in Pi"
 
 
+def test_setting_builder_handoff_preserves_story_directional_state(tmp_path):
+    mem = _client(tmp_path)
+    update_explorer_story(
+        mem.store,
+        "explorer-mode",
+        current_exploratory_story="Explorer is becoming observable.",
+    )
+    set_explorer_attractors(
+        mem.store,
+        "explorer-mode",
+        [ExplorerAttractor(label="External validation")],
+    )
+    set_explorer_experiment_proposal(
+        mem.store,
+        "explorer-mode",
+        ExplorerExperimentProposal(title="Validate in Pi"),
+    )
+
+    updated = set_explorer_builder_handoff(
+        mem.store,
+        "explorer-mode",
+        ExplorerBuilderHandoff(
+            title="Build Explorer persistence",
+            summary="The exploration clarified the Builder boundary.",
+            artifact_dir="/tmp/handoff",
+        ),
+    )
+
+    assert updated.current_exploratory_story == "Explorer is becoming observable."
+    assert updated.attractors[0].label == "External validation"
+    assert updated.experiment_proposal is not None
+    assert updated.builder_handoff is not None
+    assert updated.builder_handoff.title == "Build Explorer persistence"
+    assert updated.builder_handoff.readiness == "proposed"
+
+
+def test_setting_builder_handoff_rejects_empty_title(tmp_path):
+    mem = _client(tmp_path)
+
+    try:
+        set_explorer_builder_handoff(
+            mem.store,
+            "explorer-mode",
+            ExplorerBuilderHandoff(title=" "),
+        )
+    except ValueError as exc:
+        assert "builder handoff title" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
 def test_render_explorer_story_context_includes_directional_state(tmp_path):
     mem = _client(tmp_path)
     story = update_explorer_story(
@@ -219,6 +272,11 @@ def test_render_explorer_story_context_includes_directional_state(tmp_path):
         "explorer-mode",
         ExplorerExperimentProposal(title="Validate in Pi"),
     )
+    story = set_explorer_builder_handoff(
+        mem.store,
+        "explorer-mode",
+        ExplorerBuilderHandoff(title="Build Explorer persistence", artifact_dir="/tmp/handoff"),
+    )
 
     rendered = render_explorer_story_context(story)
 
@@ -227,3 +285,5 @@ def test_render_explorer_story_context_includes_directional_state(tmp_path):
     assert "Explorer is becoming observable." in rendered
     assert "External validation [proposed]" in rendered
     assert "Validate in Pi [proposed]" in rendered
+    assert "Build Explorer persistence [proposed]" in rendered
+    assert "artifact_dir: /tmp/handoff" in rendered

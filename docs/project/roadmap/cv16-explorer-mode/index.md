@@ -2,11 +2,11 @@
 
 # CV16 — Explorer Mode
 
-**Status:** 🟢 DS0–DS6 Done
+**Status:** 🟢 DS0–DS7 Done
 
 **Source exploration:** [ES-003 Explorer Mode](../../exploration/es-003-explorer-mode.md)
 
-**Release intent:** future minor release after roadmap confirmation
+**Release intent:** first Explorer Mode release after DS7 Promotion Handoff and DS8 Persistence and Visibility
 
 ---
 
@@ -69,8 +69,9 @@ possible. It does not silently convert exploration into delivery.
 | [CV16.DS4](cv16-ds4-in-session-exploratory-story/index.md) | In-session Exploratory Story | Explorer Mode maintains one current Exploratory Story per journey session, with narrative summary and last card context available for the next turn | ✅ Done |
 | [CV16.DS5](cv16-ds5-story-thickening-surfaces/index.md) | Story thickening surfaces | Mirror renders Exploratory Story Opened, Story Thickened, and Narrative Field Snapshot at the right moments | ✅ Done |
 | [CV16.DS6](cv16-ds6-experiment-proposals-and-attractors/index.md) | Experiment proposals and attractors | A thickened exploration can name attractors and propose concrete experiments without pretending to be Builder delivery | ✅ Done |
-| CV16.DS7 | Promotion handoff to Builder | A confirmed experiment or exploration can produce a minimal Builder handoff without pretending to be a complete delivery plan | 🟡 Planned |
-| CV16.DS8 | Persistence and visibility | Exploratory state survives beyond one fragile session and becomes visible in appropriate Mirror surfaces after the conversational behavior is proven | ⚪ Later |
+| [CV16.DS7](cv16-ds7-promotion-handoff-to-builder/index.md) | Promotion handoff to Builder | A confirmed experiment or exploration can produce a minimal Builder handoff without pretending to be a complete delivery plan | ✅ Done |
+| CV16.DS8 | Persistence and visibility | Exploratory state survives beyond one fragile session and becomes visible in appropriate Mirror surfaces after the conversational behavior is proven | 🟡 Planned |
+| CV16.DS9 | Release packaging and feedback runway | Package the first Explorer Mode release after DS7 and DS8, then leave multiple stories and advanced Explorer capabilities for feedback-driven future work | 🟡 Planned |
 
 The first enabling slice is the runtime status bar foundation because Explorer
 adds a new operating lens and Mirror should make the active lens visible before
@@ -128,11 +129,14 @@ later only if practice shows it carries real product value.
 
 ## Done Condition
 
-CV16 is done when a user can explicitly enter Explorer Mode for a journey,
-explore across multiple turns with visible story thickening, request a Narrative
-Field Snapshot, receive an experiment proposal with attractors, and explicitly
-promote the exploration into Builder without hidden mode switching or premature
-construction.
+CV16 first release is done when a user can explicitly enter Explorer Mode for a
+journey, explore across multiple turns with visible story thickening, request a
+Narrative Field Snapshot, receive an experiment proposal with attractors,
+explicitly promote the exploration into Builder without hidden mode switching or
+premature construction, and recover the exploration beyond fragile runtime state.
+Multiple simultaneous Exploratory Stories and advanced Explorer capabilities are
+intentionally deferred until users experiment with the first release and generate
+feedback.
 
 ---
 

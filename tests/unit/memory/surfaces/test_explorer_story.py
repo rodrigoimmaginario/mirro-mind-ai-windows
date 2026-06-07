@@ -2,15 +2,18 @@
 
 from memory.services.explorer_story import (
     ExplorerAttractor,
+    ExplorerBuilderHandoff,
     ExplorerExperimentProposal,
     ExplorerStory,
 )
 from memory.surfaces.explorer_story import (
     render_attractors_emerging,
+    render_builder_handoff_proposed,
     render_experiment_proposal,
     render_exploratory_story_opened,
     render_missing_exploratory_story,
     render_narrative_field_snapshot,
+    render_no_builder_handoff,
     render_story_thickened,
 )
 
@@ -30,6 +33,14 @@ def _story() -> ExplorerStory:
         experiment_proposal=ExplorerExperimentProposal(
             title="Validate in Pi",
             description="Ask through natural language and inspect surfaces.",
+        ),
+        builder_handoff=ExplorerBuilderHandoff(
+            title="Build Explorer persistence",
+            summary="The exploration clarified the Builder boundary.",
+            artifact_dir="/tmp/exploration",
+            exploratory_story_path="/tmp/exploration/exploratory-story.md",
+            handoff_info_path="/tmp/exploration/handoff-info.md",
+            product_design_proposal_path="/tmp/exploration/product-design-proposal.md",
         ),
     )
 
@@ -76,6 +87,24 @@ def test_experiment_proposal_surface_renders_boundary():
     assert "△  EXPERIMENT PROPOSAL" in rendered
     assert "Validate in Pi" in rendered
     assert "This is not Builder delivery" in rendered
+
+
+def test_builder_handoff_surface_renders_artifacts_and_boundary():
+    rendered = render_builder_handoff_proposed(_story())
+
+    assert "△  BUILDER HANDOFF PROPOSED" in rendered
+    assert "Build Explorer persistence" in rendered
+    assert "exploratory-story.md" in rendered
+    assert "handoff-info.md" in rendered
+    assert "product-design-proposal.md" in rendered
+    assert "Builder executes only after explicit confirmation" in rendered
+
+
+def test_no_builder_handoff_surface_is_clear():
+    rendered = render_no_builder_handoff(journey="explorer-mode")
+
+    assert "△  NO BUILDER HANDOFF" in rendered
+    assert "No Builder handoff proposal" in rendered
 
 
 def test_missing_story_surface_is_clear():

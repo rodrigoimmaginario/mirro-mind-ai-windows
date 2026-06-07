@@ -32,7 +32,7 @@ folder and index. Stories that are non-trivial have a `plan.md` and a
 | [CV13](cv13-mirror-web-console/index.md) | Mirror Web Experience | ✅ Done |
 | [CV14](cv14-stateful-extensions/index.md) | Stateful Extension System | 🟢 E1–E2 Done · E3–E4 provisional |
 | [CV15](cv15-cognitive-location/index.md) | Cognitive Location | ✅ Done |
-| [CV16](cv16-explorer-mode/index.md) | Explorer Mode | 🟢 DS0–DS6 Done |
+| [CV16](cv16-explorer-mode/index.md) | Explorer Mode | 🟢 DS0–DS7 Done |
 
 ---
 
@@ -67,8 +67,9 @@ In progress. CV16 gives Mirror a native exploratory lens for the uncertain middl
 between reflection and construction. The status bar foundation, mode transition
 surface, discard-current runtime hygiene, explicit Explorer activation and
 deactivation contract, in-session Exploratory Story state, story thickening
-surfaces, experiment proposals, and attractors are done. The remaining arc adds
-promotion handoff and later persistence and visibility. See the [CV16 index](cv16-explorer-mode/index.md).
+surfaces, experiment proposals, attractors, and Builder handoff artifacts are
+done. The remaining arc adds persistence, visibility, and release packaging. See
+the [CV16 index](cv16-explorer-mode/index.md).
 
 ## CV11 — Localization
 

@@ -1785,7 +1785,7 @@ function renderConversationDetail(detail) {
   const countLabel = count === 1 ? '1 message' : `${count} messages`;
   return `
     <button type="button" class="text-link detail-back" data-back-view="workspace">← Back to Workspace</button>
-    <section class="conversation-detail">
+    <section class="conversation-detail" data-conversation-detail-id="${escapeHtml(detail.id)}">
       <header class="conversation-detail-head">
         <p class="concept-kicker">Conversation transcript</p>
         <h2>${escapeHtml(detail.title || detail.id)}</h2>
@@ -1883,6 +1883,14 @@ async function deleteConversations(conversationIds) {
   });
 }
 
+async function deleteConversationTurn(conversationId, userMessageId) {
+  return fetchJson('/api/conversations/delete-turn', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conversationId, userMessageId }),
+  });
+}
+
 function renderConversationJourneyOptions(detail) {
   return `<option value="" ${detail.journey ? '' : 'selected'}>Unassigned</option>${renderJourneySelectOptions(detail.journeys || [], detail.journey || '')}`;
 }
@@ -1900,12 +1908,16 @@ function renderJourneySelectOptions(journeys, selected = '') {
 function renderConversationMessage(message) {
   const role = message.role || 'unknown';
   const roleLabel = conversationRoleLabel(role);
+  const deleteTurn = message.turnDeletable
+    ? `<button type="button" class="danger-action subtle-danger" data-delete-turn-message="${escapeHtml(message.id)}">Delete turn</button>`
+    : '';
   return `
-    <article class="conversation-message role-${escapeHtml(role)}">
+    <article class="conversation-message role-${escapeHtml(role)}" data-message-id="${escapeHtml(message.id)}" ${message.turnId ? `data-turn-id="${escapeHtml(message.turnId)}"` : ''}>
       <div class="conversation-message-meta">
         <strong>${escapeHtml(roleLabel)}</strong>
         <span>${escapeHtml(formatDateTime(message.createdAt))}</span>
         ${message.tokenCount ? `<span>${escapeHtml(message.tokenCount)} tokens</span>` : ''}
+        ${deleteTurn}
       </div>
       <div class="conversation-message-content">${renderPlainTranscript(message.content || '')}</div>
     </article>
@@ -2344,6 +2356,24 @@ content.addEventListener('click', async (event) => {
     const result = await deleteConversations(conversationIds);
     showWarning(`Deleted ${result.deletedCount} conversation(s).`);
     await loadUnassignedConversations();
+    return;
+  }
+
+  const deleteTurnTarget = event.target.closest('[data-delete-turn-message]');
+  if (deleteTurnTarget) {
+    event.preventDefault();
+    const conversationEl = deleteTurnTarget.closest('[data-conversation-detail-id]');
+    const conversationId = conversationEl?.dataset.conversationDetailId;
+    const messageId = deleteTurnTarget.dataset.deleteTurnMessage;
+    if (!conversationId || !messageId) return;
+    if (!window.confirm('Delete this full turn, including the user message and the following Mirror response?')) return;
+    const result = await deleteConversationTurn(conversationId, messageId);
+    showWarning(`Deleted ${result.deletedCount} message(s) from this turn.`);
+    if (result.conversation) {
+      content.innerHTML = renderConversationDetail(result.conversation);
+    } else {
+      await loadConversation(conversationId, { updateHistory: false });
+    }
     return;
   }
 

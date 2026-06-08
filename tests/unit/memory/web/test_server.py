@@ -1201,6 +1201,62 @@ def test_conversation_delete_api_deletes_selected_conversations_and_dependents(
         )
 
 
+def test_conversation_delete_turn_api_deletes_user_and_following_assistant(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    db_path = mirror_home / "memory.db"
+    with MemoryClient(db_path=db_path) as mem:
+        conversation = mem.conversations.start_conversation(interface="pi", title="Turn pruning")
+        first_user = mem.conversations.add_message(conversation.id, "user", "Remove this question")
+        first_assistant = mem.conversations.add_message(conversation.id, "assistant", "Remove this answer")
+        kept_user = mem.conversations.add_message(conversation.id, "user", "Keep this question")
+        kept_assistant = mem.conversations.add_message(conversation.id, "assistant", "Keep this answer")
+
+    server = WebTestServer(root=make_docs_root(tmp_path), mirror_home=mirror_home, db_path=db_path)
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/conversations/delete-turn",
+            {"conversationId": conversation.id, "userMessageId": first_user.id},
+        )
+    finally:
+        server.close()
+
+    assert status == 200
+    assert payload["deletedCount"] == 2
+    assert payload["messageIds"] == [first_user.id, first_assistant.id]
+    assert payload["conversation"]["messageCount"] == 2
+    assert [message["id"] for message in payload["conversation"]["messages"]] == [
+        kept_user.id,
+        kept_assistant.id,
+    ]
+    with MemoryClient(db_path=db_path) as mem:
+        assert [message.id for message in mem.store.get_messages(conversation.id)] == [
+            kept_user.id,
+            kept_assistant.id,
+        ]
+
+
+def test_conversation_delete_turn_api_rejects_assistant_start(tmp_path: Path) -> None:
+    mirror_home = tmp_path / "mirror-home"
+    db_path = mirror_home / "memory.db"
+    with MemoryClient(db_path=db_path) as mem:
+        conversation = mem.conversations.start_conversation(interface="pi", title="Turn pruning")
+        assistant = mem.conversations.add_message(conversation.id, "assistant", "Cannot start here")
+
+    server = WebTestServer(root=make_docs_root(tmp_path), mirror_home=mirror_home, db_path=db_path)
+    try:
+        status, payload = server.request(
+            "POST",
+            "/api/conversations/delete-turn",
+            {"conversationId": conversation.id, "userMessageId": assistant.id},
+        )
+    finally:
+        server.close()
+
+    assert status == 400
+    assert payload["error"] == "turn deletion must start from a user message"
+
+
 def test_conversation_delete_api_rejects_empty_selection(tmp_path: Path) -> None:
     mirror_home = tmp_path / "mirror-home"
     server = WebTestServer(
@@ -1313,6 +1369,8 @@ def test_conversation_detail_api_returns_read_only_transcript(tmp_path: Path) ->
             "content": "Can we read transcripts?",
             "createdAt": payload["messages"][0]["createdAt"],
             "tokenCount": None,
+            "turnId": payload["messages"][0]["id"],
+            "turnDeletable": True,
         },
         {
             "id": payload["messages"][1]["id"],
@@ -1320,6 +1378,8 @@ def test_conversation_detail_api_returns_read_only_transcript(tmp_path: Path) ->
             "content": "Yes, as read-only pages.",
             "createdAt": payload["messages"][1]["createdAt"],
             "tokenCount": None,
+            "turnId": payload["messages"][0]["id"],
+            "turnDeletable": False,
         },
     ]
     assert "metadata" not in payload

@@ -215,6 +215,9 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/conversations/delete":
             self._delete_conversations()
             return
+        if parsed.path == "/api/conversations/delete-turn":
+            self._delete_conversation_turn()
+            return
         if parsed.path == "/api/conversations/summary-suggestion":
             self._suggest_conversation_summary()
             return
@@ -732,6 +735,24 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
 
         self._send_json({"deletedCount": len(deleted), "conversationIds": deleted})
 
+    def _delete_conversation_turn(self) -> None:
+        try:
+            payload = self._read_json_body()
+            conversation_id = payload.get("conversationId")
+            user_message_id = payload.get("userMessageId")
+            if not isinstance(conversation_id, str) or not conversation_id:
+                raise ValueError("conversationId is required")
+            if not isinstance(user_message_id, str) or not user_message_id:
+                raise ValueError("userMessageId is required")
+            with MemoryClient(db_path=self._db_path()) as mem:
+                deleted = mem.conversations.delete_turn(conversation_id, user_message_id)
+                detail = self._conversation_detail_payload(mem, conversation_id)
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            self._send_json({"error": str(exc)}, status=400)
+            return
+
+        self._send_json({"deletedCount": len(deleted), "messageIds": deleted, "conversation": detail})
+
     def _preview_conversation_metadata_lifecycle(self) -> None:
         try:
             payload = self._read_json_body()
@@ -775,6 +796,7 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
         if conversation is None:
             return None
         messages = mem.store.get_messages(conversation.id)
+        turn_ids = _conversation_turn_ids(messages)
         return {
             "id": conversation.id,
             "title": conversation.title or conversation.id[:8],
@@ -797,6 +819,8 @@ class MirrorWebHandler(BaseHTTPRequestHandler):
                     "content": message.content,
                     "createdAt": message.created_at,
                     "tokenCount": message.token_count,
+                    "turnId": turn_ids.get(message.id),
+                    "turnDeletable": message.role == "user" and turn_ids.get(message.id) is not None,
                 }
                 for message in messages
             ],
@@ -1033,6 +1057,15 @@ def _parse_embedded_orientation(content: str) -> dict[str, object] | None:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _conversation_turn_ids(messages: list) -> dict[str, str]:
+    turn_ids: dict[str, str] = {}
+    for index, message in enumerate(messages[:-1]):
+        if message.role == "user" and messages[index + 1].role == "assistant":
+            turn_ids[message.id] = message.id
+            turn_ids[messages[index + 1].id] = message.id
+    return turn_ids
 
 
 def _conversation_tags(raw_tags: str | None) -> list[str]:

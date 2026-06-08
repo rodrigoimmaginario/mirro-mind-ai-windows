@@ -2611,6 +2611,11 @@ input {
   color: var(--text);
 }
 
+.subtle-danger {
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+
 .conversation-message-content pre {
   margin: 0;
   white-space: pre-wrap;

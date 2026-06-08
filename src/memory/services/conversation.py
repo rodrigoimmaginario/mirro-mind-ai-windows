@@ -463,6 +463,28 @@ class ConversationService:
             "dry_run": dry_run,
         }
 
+    def delete_turn(self, conversation_id: str, user_message_id: str) -> list[str]:
+        """Delete one user+assistant turn from a conversation."""
+        conversation = self.store.get_conversation(conversation_id)
+        if conversation is None:
+            raise ValueError("conversation not found")
+        messages = self.store.get_messages(conversation_id)
+        for index, message in enumerate(messages):
+            if message.id != user_message_id:
+                continue
+            if message.role != "user":
+                raise ValueError("turn deletion must start from a user message")
+            if index + 1 >= len(messages) or messages[index + 1].role != "assistant":
+                raise ValueError("turn deletion requires a following assistant response")
+            deleted_ids = [message.id, messages[index + 1].id]
+            self.store.conn.executemany(
+                "DELETE FROM messages WHERE id = ? AND conversation_id = ?",
+                [(message_id, conversation_id) for message_id in deleted_ids],
+            )
+            self.store.conn.commit()
+            return deleted_ids
+        raise ValueError("user message not found in conversation")
+
     def delete_conversations(self, conversation_ids: list[str]) -> list[str]:
         """Delete selected conversations while preserving extracted memories."""
         if not isinstance(conversation_ids, list) or not conversation_ids:

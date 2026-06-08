@@ -133,7 +133,7 @@ def render_active_rite(
         utterance = question
     if voice == "wisdom" and not utterance:
         raise ValueError("Wisdom Voice requires a situated --says response")
-    voice_says = (utterance or defaults["utterance"]).strip()
+    voice_says = _normalize_voice_text(utterance or defaults["utterance"])
     focus = (listening_for or defaults["listening_for"]).strip()
     if not voice_says:
         raise ValueError("active rite voice utterance must not be empty")
@@ -162,6 +162,10 @@ def render_active_rite(
 def _line(text: str) -> str:
     content = text[:WIDTH]
     return "│" + content.ljust(WIDTH) + "│"
+
+
+def _normalize_voice_text(text: str) -> str:
+    return text.replace("\\n", "\n").strip()
 
 
 def _wrap(text: str, *, indent: str) -> list[str]:

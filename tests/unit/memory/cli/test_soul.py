@@ -406,7 +406,8 @@ def test_soul_prompt_wisdom_renders_canonical_prompt(capsys):
     assert "Do not explain. Affirm." in out
     assert "central image, metaphor, symbol" in out
     assert "Mirror's normal tone" in out
-    assert "fabricate authors, books, citations" in out
+    assert "who said it, where it appears" in out
+    assert "fabricate citation details" in out
     assert "recommend a next step" in out
 
 

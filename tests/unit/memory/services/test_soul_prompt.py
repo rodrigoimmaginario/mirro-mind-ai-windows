@@ -50,7 +50,8 @@ def test_wisdom_voice_prompt_is_canonical():
     assert "Do not explain. Affirm." in prompt
     assert "central image, metaphor, symbol" in prompt
     assert "Mirror's normal tone" in prompt
-    assert "fabricate authors, books, citations" in prompt
+    assert "who said it, where it appears" in prompt
+    assert "fabricate citation details" in prompt
     assert "recommend a next step" in prompt
 
 

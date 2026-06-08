@@ -114,6 +114,18 @@ def test_active_rite_preserves_paragraph_breaks_in_voice_response():
     assert "│                                        │" in rendered
 
 
+def test_active_rite_converts_escaped_newlines_in_voice_response():
+    rendered = render_active_rite(
+        "wisdom",
+        utterance="Escuta.\\n\\nA árvore lembra a raiz.",
+    )
+
+    assert "Escuta." in rendered
+    assert "A árvore lembra a raiz." in rendered
+    assert "\\n" not in rendered
+    assert "│                                        │" in rendered
+
+
 def test_active_rite_renders_wisdom_voice_utterance_without_listening_for():
     rendered = render_active_rite(
         "wisdom",

@@ -380,7 +380,10 @@ def test_soul_prompt_wisdom_renders_canonical_prompt(capsys):
     assert "# Soul Mode — Wisdom Voice Prompt" in out
     assert "thinker, philosopher, sacred text" in out
     assert "cite the author, tradition, and work" in out
-    assert "4 to 7 compact paragraphs" in out
+    assert "5 to 8 compact paragraphs" in out
+    assert "voice of the selected wisdom source itself" in out
+    assert "leave his father and his mother" in out
+    assert "Mirror's normal tone" in out
     assert "fabricate authors, books, citations" in out
     assert "recommend a next step" in out
 

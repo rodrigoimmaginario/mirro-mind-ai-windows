@@ -45,7 +45,10 @@ def test_wisdom_voice_prompt_is_canonical():
     assert "# Soul Mode — Wisdom Voice Prompt" in prompt
     assert "thinker, philosopher, sacred text" in prompt
     assert "cite the author, tradition, and work" in prompt
-    assert "4 to 7 compact paragraphs" in prompt
+    assert "5 to 8 compact paragraphs" in prompt
+    assert "voice of the selected wisdom source itself" in prompt
+    assert "leave his father and his mother" in prompt
+    assert "Mirror's normal tone" in prompt
     assert "fabricate authors, books, citations" in prompt
     assert "recommend a next step" in prompt
 

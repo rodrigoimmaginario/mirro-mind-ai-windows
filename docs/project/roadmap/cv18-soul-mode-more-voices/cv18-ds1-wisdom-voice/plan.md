@@ -26,7 +26,7 @@ Soul Mode
 
 Possible Listenings should present Wisdom Voice as a situated option, not as a generic menu item. Its description should point to what the experience already knows or what discernment is trying to emerge.
 
-The voice prompt should forbid solutionism while recovering the original Wisdom Voice concept: the user's material should be crossed by a situated source of wisdom. Wisdom may use a thinker, philosopher, sacred text, ancient tradition, proverb, contemplative teaching, or other relevant text. It should cite author/tradition/work when reliable, avoid fabricated precision, and deepen the user's material beyond a one-line aphorism.
+The voice prompt should forbid solutionism while recovering the original Wisdom Voice concept: the user's material should be crossed by a situated source of wisdom. Wisdom may use a thinker, philosopher, sacred text, ancient tradition, proverb, contemplative teaching, or other relevant text. It should cite author/tradition/work when reliable, avoid fabricated precision, and deepen the source's symbolism beyond a one-line aphorism. The card should contain the voice of the source; Mirror's bridge to the user's situation belongs outside the card.
 
 ## Implementation Notes
 
@@ -82,5 +82,5 @@ Expected:
 
 - Possible Listenings includes Wisdom Voice.
 - Wisdom Voice renders with a ritual card.
-- The voice cites a relevant source when reliable and deepens the user's material without giving a task list.
+- The voice cites a relevant source when reliable, speaks in that source's solemn symbolic register, and leaves Mirror's practical bridge outside the card.
 - No journal or identity mutation occurs.

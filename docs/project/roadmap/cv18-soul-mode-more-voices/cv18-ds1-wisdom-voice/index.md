@@ -14,7 +14,7 @@
 
 The first Soul Mode release names a larger constellation than it can yet render. Wisdom is one of the voices the user can intuitively expect to hear, but it is not yet active.
 
-Wisdom Voice is not a generic advisor. It lets the user's material be crossed by a situated idea from a thinker, philosopher, sacred text, ancient tradition, proverb, contemplative teaching, or other relevant wisdom text. It should cite the author, tradition, and work when reliable, and it should deepen the user's situation rather than return a short aphorism.
+Wisdom Voice is not a generic advisor. It lets the user's material be crossed by a situated idea from a thinker, philosopher, sacred text, ancient tradition, proverb, contemplative teaching, or other relevant wisdom text. It should cite the author, tradition, and work when reliable. Inside the card, the source itself should speak in a solemn, ancestral register and unfold its own symbolism; Mirror's practical bridge to the user's situation happens outside the card.
 
 ---
 
@@ -49,7 +49,9 @@ Given Soul Mode has enough living matter, Possible Listenings includes Wisdom Vo
 
 Given the user asks to hear Wisdom Voice, Mirror renders a Wisdom Voice listening card with what the voice says and what it is listening for.
 
-Given Wisdom Voice responds, it names a relevant thinker, text, tradition, proverb, or teaching when reliable, explains why it crosses the user's material, and deepens discernment rather than prescribing next steps.
+Given Wisdom Voice responds, the card contains the voice of a relevant thinker, text, tradition, proverb, or teaching when reliable, unfolds the source's image or symbolism in 5–8 compact paragraphs, and leaves one discernment question rather than prescribing next steps.
+
+Given the card has rendered, Mirror may bridge outside the card in its normal tone, connecting the source's voice to the user's concrete situation.
 
 Given Wisdom Voice runs, no journal entry, identity entry, or project-state mutation is created automatically.
 

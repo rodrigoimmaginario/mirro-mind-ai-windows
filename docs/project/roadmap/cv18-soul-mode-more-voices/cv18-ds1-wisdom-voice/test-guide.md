@@ -60,7 +60,9 @@ Expected:
 - Wisdom Voice is treated as a listening lens, not a separate character.
 - The response appears inside the ritual card under `the voice says`.
 - Mirror may bridge outside the card after the voice speaks.
-- The content cites a relevant thinker, text, tradition, proverb, or teaching when reliable.
+- The card cites a relevant thinker, text, tradition, proverb, or teaching when reliable.
 - If the exact book/passage is uncertain, the response does not fabricate bibliographic precision.
-- The content deepens the user's material over several compact paragraphs rather than returning a one-line aphorism.
+- The card speaks as the source/text/tradition in a solemn, ancestral register.
+- The card unfolds the source's image or symbolism over 5–8 compact paragraphs rather than returning a one-line aphorism.
+- The practical connection to the user's concrete problem appears outside the card in Mirror's normal tone.
 - The content reveals discernment, pattern, lesson, or simple truth without prescribing next steps.

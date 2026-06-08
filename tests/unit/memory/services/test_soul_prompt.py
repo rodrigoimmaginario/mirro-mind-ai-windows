@@ -43,10 +43,11 @@ def test_wisdom_voice_prompt_is_canonical():
     prompt = compose_soul_wisdom_voice_prompt()
 
     assert "# Soul Mode — Wisdom Voice Prompt" in prompt
-    assert "thinker, philosopher, sacred text" in prompt
-    assert "cite the author, tradition, and work" in prompt
+    assert "philosophers, sacred books" in prompt
     assert "5 to 8 compact paragraphs" in prompt
-    assert "voice of the selected wisdom source itself" in prompt
+    assert "Do not include a separate `listening for` section" in prompt
+    assert "You are the Ancestral Voice" in prompt
+    assert "Do not explain. Affirm." in prompt
     assert "central image, metaphor, symbol" in prompt
     assert "Mirror's normal tone" in prompt
     assert "fabricate authors, books, citations" in prompt

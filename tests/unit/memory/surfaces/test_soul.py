@@ -114,13 +114,14 @@ def test_active_rite_preserves_paragraph_breaks_in_voice_response():
     assert "│                                        │" in rendered
 
 
-def test_active_rite_renders_wisdom_voice_defaults():
+def test_active_rite_renders_wisdom_voice_defaults_without_listening_for():
     rendered = render_active_rite("wisdom")
 
     assert "♢  WISDOM VOICE LISTENING" in rendered
     assert "this already knows the difference" in rendered
     assert "between urgency and truth" in rendered
-    assert "the lesson already present" in rendered
+    assert "listening for" not in rendered
+    assert "the lesson already present" not in rendered
 
 
 def test_active_rite_renders_beauty_voice_defaults():

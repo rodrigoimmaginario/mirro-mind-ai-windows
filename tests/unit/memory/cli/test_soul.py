@@ -132,13 +132,14 @@ def test_soul_rite_renders_shadow_voice(capsys):
     assert "the protection inside control" in out
 
 
-def test_soul_rite_renders_wisdom_voice(capsys):
+def test_soul_rite_renders_wisdom_voice_without_listening_for(capsys):
     soul.cmd_rite("wisdom")
 
     out = capsys.readouterr().out
     assert "♢  WISDOM VOICE LISTENING" in out
     assert "this already knows the difference" in out
-    assert "the lesson already present" in out
+    assert "listening for" not in out
+    assert "the lesson already present" not in out
 
 
 def test_soul_rite_renders_beauty_voice(capsys):
@@ -378,10 +379,11 @@ def test_soul_prompt_wisdom_renders_canonical_prompt(capsys):
 
     out = capsys.readouterr().out
     assert "# Soul Mode — Wisdom Voice Prompt" in out
-    assert "thinker, philosopher, sacred text" in out
-    assert "cite the author, tradition, and work" in out
+    assert "philosophers, sacred books" in out
     assert "5 to 8 compact paragraphs" in out
-    assert "voice of the selected wisdom source itself" in out
+    assert "Do not include a separate `listening for` section" in out
+    assert "You are the Ancestral Voice" in out
+    assert "Do not explain. Affirm." in out
     assert "central image, metaphor, symbol" in out
     assert "Mirror's normal tone" in out
     assert "fabricate authors, books, citations" in out

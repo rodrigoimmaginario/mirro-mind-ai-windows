@@ -149,9 +149,10 @@ def render_active_rite(
     ]
     for wrapped in _wrap_blocks(voice_says, indent="   "):
         lines.append(_line(wrapped))
-    lines.extend([_line(""), _line("   listening for")])
-    for wrapped in _wrap(focus, indent="   "):
-        lines.append(_line(wrapped))
+    if voice != "wisdom":
+        lines.extend([_line(""), _line("   listening for")])
+        for wrapped in _wrap(focus, indent="   "):
+            lines.append(_line(wrapped))
     lines.append("╰" + "─" * WIDTH + "╯")
     return "\n".join(lines)
 

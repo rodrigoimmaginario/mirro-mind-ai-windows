@@ -64,5 +64,6 @@ Expected:
 - If the exact book/passage is uncertain, the response does not fabricate bibliographic precision.
 - The card speaks as the source/text/tradition in a solemn, ancestral register.
 - The card unfolds the source's image or symbolism over 5–8 compact paragraphs rather than returning a one-line aphorism.
+- The card omits the `listening for` section for Wisdom Voice.
 - The practical connection to the user's concrete problem appears outside the card in Mirror's normal tone.
 - The content reveals discernment, pattern, lesson, or simple truth without prescribing next steps.

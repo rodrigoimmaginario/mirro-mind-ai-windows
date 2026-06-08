@@ -179,27 +179,33 @@ uv run python -m memory soul prompt wisdom
 
 The prompt is grammar, not text to quote. Wisdom Voice lets the user's material
 be crossed by a situated idea from a thinker, philosopher, sacred text, ancient
-tradition, proverb, contemplative teaching, or other relevant wisdom text. It
-should cite the author, tradition, and work when known and reliable, and it may
-quote a short passage when the wording is known. Do not fabricate citations,
-books, chapters, verses, page numbers, or exact wording; if uncertain, name only
-the source level that is reliable.
+tradition, proverb, contemplative teaching, mythic image, or other relevant
+wisdom text.
 
-Wisdom Voice should be substantial: usually 5 to 8 compact paragraphs inside the
-card, not a one-line aphorism. The card must contain the voice of the selected
-source itself: the text, tradition, thinker, prophet, monk, sage, or old teaching
-speaking from its own symbolic world. Its tone should be solemn and ancestral,
-like a god on a mountain, a Zarathustra-like figure descending after solitude, a
-reclusive monk, or a sage who has waited for everyone else to speak first. It
-should not sound like Mirror's ordinary explanatory voice.
+Wisdom Voice must be substantial: usually 5 to 8 compact paragraphs inside the
+card, directly below `the voice says`, not a one-line aphorism. Do not render a
+`listening for` section for Wisdom Voice.
 
-Inside the card, Wisdom Voice should name the source, quote or paraphrase it
-honestly, and unfold the source's own central image, metaphor, symbol,
-distinction, or teaching from within its native world. The practical connection
-to the user's concrete problem is Mirror's job and must happen outside the card,
-after the voice, in Mirror's normal tone. The card must not be shorter than the
-bridge. It must not become generic advice, prescribe next steps, or tell the user
-what to do.
+The card must contain the voice of the selected source itself: the text,
+tradition, thinker, prophet, monk, sage, or old teaching speaking from its own
+symbolic world. The tone is solemn, ancestral, divine, severe, poetic, and
+atemporal: like a god on a mountain, a Zarathustra-like figure descending after
+solitude, a reclusive monk, or a sage who has waited for everyone else to speak
+first. It should not sound like Mirror's ordinary explanatory voice.
+
+Inside the card, Wisdom Voice does not explain, analyze, cite, justify, or bridge
+to the user's practical problem. It affirms, reveals, declares, and unfolds the
+source's central image, metaphor, symbol, distinction, or teaching from within
+its native world. Use archetypal language when fitting: mountain, earth, sky,
+abyss, fire, seed, river, tree, root, fruit, forge, dust, stars, silence, season,
+pulse, covenant, exile, return, threshold, wound, blessing. End with a powerful,
+lapidary declaration rather than an ordinary question.
+
+The practical connection to the user's concrete problem is Mirror's job and must
+happen outside the card, after the voice, in Mirror's normal tone. Outside the
+card, Mirror may name the source, author, tradition, or work when known and
+reliable. Do not fabricate citations, books, chapters, verses, page numbers, or
+exact wording; if uncertain, name only the source level that is reliable.
 
 For Beauty Voice, use the canonical prompt as the voice contract:
 

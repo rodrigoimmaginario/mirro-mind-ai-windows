@@ -382,7 +382,7 @@ def test_soul_prompt_wisdom_renders_canonical_prompt(capsys):
     assert "cite the author, tradition, and work" in out
     assert "5 to 8 compact paragraphs" in out
     assert "voice of the selected wisdom source itself" in out
-    assert "leave his father and his mother" in out
+    assert "central image, metaphor, symbol" in out
     assert "Mirror's normal tone" in out
     assert "fabricate authors, books, citations" in out
     assert "recommend a next step" in out

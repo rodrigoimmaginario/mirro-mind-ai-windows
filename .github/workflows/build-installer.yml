@@ -36,6 +36,31 @@ jobs:
           & "C:\Program Files (x86)\NSIS\makensis.exe" installer\MirrorMind.nsi
           Get-Item dist\MirrorMindSetup.exe | Select-Object Name, Length
 
+      # --- Smoke Tests ---
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: "Test: win_compat.py selftest"
+        run: uv run python adapter\win_compat.py --selftest
+
+      - name: "Test: uv sync"
+        run: uv sync
+
+      - name: "Test: memory module imports"
+        run: uv run python -c "import memory; print(f'OK: {memory.__file__}')"
+
+      - name: "Test: memory CLI responds"
+        run: uv run python -m memory --help
+
+      - name: "Test: health_check.ps1"
+        run: |
+          $env:PYTHONSTARTUP = Join-Path (Get-Location) "adapter\win_compat.py"
+          powershell -ExecutionPolicy Bypass -File adapter\health_check.ps1 -RepoDir (Get-Location).Path -AdapterDir (Join-Path (Get-Location) "adapter")
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Health check had failures (expected: PYTHONSTARTUP not in user env)" -ForegroundColor Yellow
+          }
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:

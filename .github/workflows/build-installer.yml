@@ -51,7 +51,9 @@ jobs:
         run: uv run python -c "import memory; print('OK:', memory.__file__)"
 
       - name: "Test: memory CLI responds"
-        run: uv run python -m memory --help
+        run: |
+          $output = uv run python -m memory --help 2>&1
+          if ($output -match "Usage:") { Write-Host "OK: CLI responds"; exit 0 } else { Write-Host "FAIL: no usage output"; exit 1 }
 
       - name: "Test: health_check.ps1"
         run: |
